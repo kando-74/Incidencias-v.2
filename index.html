@@ -484,55 +484,83 @@
             <h2 id="modal-incidencia-titulo">Nueva incidencia</h2>
             <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
           </header>
-          <div class="modal-body">
+          <div class="modal-body modal-body--form-grid">
             <input type="hidden" id="incidencia-id" name="id" />
-            <label for="incidencia-titulo">Título *</label>
-            <input id="incidencia-titulo" name="titulo" type="text" required />
+            <div class="form-field" data-span="full">
+              <label for="incidencia-titulo">Título *</label>
+              <input id="incidencia-titulo" name="titulo" type="text" required />
+            </div>
 
-            <label for="incidencia-descripcion">Descripción</label>
-            <textarea id="incidencia-descripcion" name="descripcion" rows="4"></textarea>
+            <div class="form-field" data-span="full">
+              <label for="incidencia-descripcion">Descripción</label>
+              <textarea id="incidencia-descripcion" name="descripcion" rows="4"></textarea>
+            </div>
 
-            <label for="incidencia-estado">Estado</label>
-            <select id="incidencia-estado" name="estado">
-              <option value="abierta">Abierta</option>
-              <option value="en_proceso">En proceso</option>
-              <option value="cerrada">Cerrada</option>
-            </select>
+            <div class="form-field">
+              <label for="incidencia-estado">Estado</label>
+              <select id="incidencia-estado" name="estado">
+                <option value="abierta">Abierta</option>
+                <option value="en_proceso">En proceso</option>
+                <option value="cerrada">Cerrada</option>
+              </select>
+            </div>
 
-            <label for="incidencia-prioridad">Prioridad</label>
-            <select id="incidencia-prioridad" name="prioridad">
-              <option value="baja">Baja</option>
-              <option value="media">Media</option>
-              <option value="alta">Alta</option>
-              <option value="critica">Crítica</option>
-            </select>
+            <div class="form-field">
+              <label for="incidencia-prioridad">Prioridad</label>
+              <select id="incidencia-prioridad" name="prioridad">
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica</option>
+              </select>
+            </div>
 
-            <label for="incidencia-edificio">Edificio</label>
-            <select id="incidencia-edificio" name="edificioId"></select>
+            <div class="form-field">
+              <label for="incidencia-edificio">Edificio</label>
+              <select id="incidencia-edificio" name="edificioId"></select>
+            </div>
 
-            <label for="incidencia-reparador">Reparador</label>
-            <select id="incidencia-reparador" name="reparadorId"></select>
+            <div class="form-field">
+              <label for="incidencia-reparador">Reparador</label>
+              <select id="incidencia-reparador" name="reparadorId"></select>
+            </div>
 
-            <label for="incidencia-etiquetas">Etiquetas (separadas por comas)</label>
-            <input id="incidencia-etiquetas" name="etiquetas" type="text" />
+            <div class="form-field" data-span="full">
+              <label for="incidencia-etiquetas">Etiquetas (separadas por comas)</label>
+              <input id="incidencia-etiquetas" name="etiquetas" type="text" />
+            </div>
 
-            <fieldset>
+            <fieldset class="form-field form-field--fieldset" data-span="full">
               <legend>Seguro</legend>
               <label class="checkbox">
                 <input id="incidencia-siniestro" name="esSiniestro" type="checkbox" />
                 Es siniestro
               </label>
-              <label for="incidencia-poliza">Póliza</label>
-              <select id="incidencia-poliza" name="polizaId"></select>
-              <label for="incidencia-referencia">Referencia siniestro</label>
-              <input id="incidencia-referencia" name="referenciaSiniestro" type="text" />
+              <div class="form-field-group">
+                <div class="form-field">
+                  <label for="incidencia-poliza">Póliza</label>
+                  <select id="incidencia-poliza" name="polizaId"></select>
+                </div>
+                <div class="form-field">
+                  <label for="incidencia-referencia">Referencia siniestro</label>
+                  <input
+                    id="incidencia-referencia"
+                    name="referenciaSiniestro"
+                    type="text"
+                  />
+                </div>
+              </div>
             </fieldset>
 
-            <label for="incidencia-fecha-limite">Fecha límite</label>
-            <input id="incidencia-fecha-limite" name="fechaLimite" type="date" />
+            <div class="form-field">
+              <label for="incidencia-fecha-limite">Fecha límite</label>
+              <input id="incidencia-fecha-limite" name="fechaLimite" type="date" />
+            </div>
 
-            <label for="incidencia-archivo">Archivos</label>
-            <input id="incidencia-archivo" name="archivos" type="file" multiple />
+            <div class="form-field" data-span="full">
+              <label for="incidencia-archivo">Archivos</label>
+              <input id="incidencia-archivo" name="archivos" type="file" multiple />
+            </div>
           </div>
           <footer class="modal-footer">
             <span id="incidencia-error" class="form-error" role="alert" aria-live="assertive"></span>

@@ -72,6 +72,33 @@
           </div>
         </div>
 
+        <section id="panel-diario" class="panel-diario" aria-label="Resumen diario">
+          <article class="panel-diario-card" role="status">
+            <header>
+              <h3>Resumen de hoy</h3>
+              <p class="hint">Actividad rápida para priorizar</p>
+            </header>
+            <dl class="panel-diario-metricas">
+              <div class="panel-diario-item">
+                <dt>Abiertas</dt>
+                <dd id="metric-abiertas">0</dd>
+              </div>
+              <div class="panel-diario-item">
+                <dt>Por vencer (&lt;48h)</dt>
+                <dd id="metric-proximas">0</dd>
+              </div>
+              <div class="panel-diario-item">
+                <dt>Sin asignar</dt>
+                <dd id="metric-sin-asignar">0</dd>
+              </div>
+              <div class="panel-diario-item">
+                <dt>Nuevas hoy</dt>
+                <dd id="metric-nuevas">0</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+
         <section class="resumen" aria-live="polite">
           <div class="resumen-item">
             <span class="resumen-label">Total:</span>
@@ -91,6 +118,24 @@
           </div>
         </section>
 
+        <section
+          id="agenda-vencimientos"
+          class="agenda"
+          aria-labelledby="agenda-vencimientos-titulo"
+        >
+          <div class="agenda-header">
+            <div>
+              <h3 id="agenda-vencimientos-titulo">Agenda de vencimientos</h3>
+              <p class="hint">Fechas clave del mes en curso</p>
+            </div>
+            <div class="agenda-leyenda" aria-hidden="true">
+              <span class="agenda-marcador"></span>
+              <span>Incidencias con fecha límite</span>
+            </div>
+          </div>
+          <div id="agenda-calendario" class="agenda-calendario"></div>
+        </section>
+
         <section class="listado" aria-label="Listado de incidencias" data-view="lista">
           <div class="listado-filtros">
             <label class="sr-only" for="filtro-busqueda">Buscar incidencia</label>
@@ -104,6 +149,11 @@
               Pulsa Enter para aplicar búsqueda rápida.
             </span>
           </div>
+          <div
+            id="filtros-rapidos"
+            class="filtros-rapidos"
+            aria-live="polite"
+          ></div>
           <div id="lista-incidencias" role="list" class="lista-incidencias"></div>
         </section>
 
@@ -192,6 +242,53 @@
             </button>
             <!-- FIN: BOTON-ELIMINAR-INCIDENCIA -->
           </div>
+          <section
+            class="detalle-checklist"
+            aria-labelledby="detalle-checklist-titulo"
+          >
+            <h4 id="detalle-checklist-titulo">Checklist de resolución</h4>
+            <div id="checklist-contenido" class="checklist"></div>
+          </section>
+          <section
+            class="detalle-comunicaciones"
+            aria-labelledby="detalle-comunicaciones-titulo"
+          >
+            <div class="detalle-comunicaciones-header">
+              <h4 id="detalle-comunicaciones-titulo">
+                Historial de comunicación
+              </h4>
+              <p class="hint">
+                Registra llamadas, correos o notas vinculadas a la incidencia.
+              </p>
+            </div>
+            <ul id="comunicaciones-lista" class="comunicaciones-lista"></ul>
+            <form id="form-comunicacion" class="form-comunicacion">
+              <div class="form-row">
+                <label for="comunicacion-tipo">Tipo de registro</label>
+                <select id="comunicacion-tipo" name="tipo">
+                  <option value="llamada">Llamada</option>
+                  <option value="correo">Correo</option>
+                  <option value="nota">Nota interna</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="comunicacion-mensaje">Detalle</label>
+                <textarea
+                  id="comunicacion-mensaje"
+                  name="mensaje"
+                  rows="3"
+                  required
+                ></textarea>
+              </div>
+              <p
+                id="comunicacion-error"
+                class="form-error"
+                role="alert"
+                aria-live="assertive"
+              ></p>
+              <button type="submit" class="btn primary">Añadir registro</button>
+            </form>
+          </section>
         </aside>
       </section>
     </main>
@@ -309,6 +406,21 @@
             <input id="filtro-solo-siniestros" name="soloSiniestros" type="checkbox" />
             Solo siniestros
           </label>
+          <div class="filtro-guardar" data-span="full">
+            <label for="filtro-nombre-rapido">Guardar como filtro rápido</label>
+            <input
+              id="filtro-nombre-rapido"
+              name="nombreFiltro"
+              type="text"
+              placeholder="Ej. Pendientes de limpieza"
+            />
+            <button type="button" id="btn-guardar-filtro" class="btn secondary">
+              Guardar filtro
+            </button>
+            <p class="hint">
+              Se guardarán los criterios actuales para reutilizarlos con un clic.
+            </p>
+          </div>
         </div>
         <footer class="modal-footer">
           <button type="reset" class="btn secondary" id="btn-limpiar-filtros">Limpiar</button>

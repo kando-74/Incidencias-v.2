@@ -213,3 +213,114 @@ export async function eliminarIncidencia(id) {
     throw error;
   }
 }
+
+/**
+ * Actualiza el estado del checklist de una incidencia.
+ * @param {string} id
+ * @param {Record<string, boolean>} checklistEstado
+ */
+export async function actualizarChecklistIncidencia(id, checklistEstado) {
+  try {
+    const refDoc = doc(db, "incidencias", id);
+    await updateDoc(refDoc, {
+      checklistEstado,
+      fechaActualizacion: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("No se pudo actualizar el checklist", error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene los filtros rápidos guardados del usuario.
+ * @param {string} uid
+ */
+export async function obtenerFiltrosGuardados(uid) {
+  try {
+    const refCol = collection(db, "usuarios", uid, "filtros_guardados");
+    const q = query(refCol, orderBy("creadoEn", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }));
+  } catch (error) {
+    console.error("No se pudieron obtener los filtros guardados", error);
+    throw error;
+  }
+}
+
+/**
+ * Guarda un filtro rápido para el usuario.
+ * @param {string} uid
+ * @param {{ nombre: string; criterios: Record<string, any> }} filtro
+ */
+export async function guardarFiltroGuardado(uid, filtro) {
+  try {
+    const refCol = collection(db, "usuarios", uid, "filtros_guardados");
+    const payload = {
+      nombre: filtro.nombre,
+      criterios: filtro.criterios,
+      creadoEn: serverTimestamp(),
+    };
+    const docRef = await addDoc(refCol, payload);
+    return docRef.id;
+  } catch (error) {
+    console.error("No se pudo guardar el filtro", error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un filtro rápido guardado.
+ * @param {string} uid
+ * @param {string} filtroId
+ */
+export async function eliminarFiltroGuardado(uid, filtroId) {
+  try {
+    const refDoc = doc(db, "usuarios", uid, "filtros_guardados", filtroId);
+    await deleteDoc(refDoc);
+  } catch (error) {
+    console.error("No se pudo eliminar el filtro", error);
+    throw error;
+  }
+}
+
+/**
+ * Recupera el historial de comunicaciones de una incidencia.
+ * @param {string} incidenciaId
+ */
+export async function obtenerComunicaciones(incidenciaId) {
+  try {
+    const refCol = collection(db, "incidencias", incidenciaId, "comunicaciones");
+    const q = query(refCol, orderBy("fecha", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnapshot) => {
+      const data = docSnapshot.data();
+      return {
+        id: docSnapshot.id,
+        ...data,
+        fecha: data.fecha?.toDate?.().toISOString?.() ?? data.fecha ?? null,
+      };
+    });
+  } catch (error) {
+    console.error("No se pudo obtener el historial de comunicaciones", error);
+    throw error;
+  }
+}
+
+/**
+ * Registra una comunicación vinculada a la incidencia.
+ * @param {string} incidenciaId
+ * @param {{ tipo?: string; mensaje: string; autor?: string }} comunicacion
+ */
+export async function agregarComunicacion(incidenciaId, comunicacion) {
+  try {
+    const refCol = collection(db, "incidencias", incidenciaId, "comunicaciones");
+    await addDoc(refCol, {
+      ...comunicacion,
+      fecha: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("No se pudo guardar la comunicación", error);
+    throw error;
+  }
+}

@@ -150,6 +150,58 @@ textarea {
   flex-wrap: wrap;
 }
 
+.panel-diario {
+  display: grid;
+}
+
+.panel-diario-card {
+  background: linear-gradient(135deg, rgba(13, 110, 253, 0.12), rgba(13, 110, 253, 0.05));
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  display: grid;
+  gap: 1rem;
+}
+
+.panel-diario-card header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.panel-diario-card h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.panel-diario-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.panel-diario-item {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.panel-diario-item dt {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.panel-diario-item dd {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
 .resumen {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -183,6 +235,64 @@ textarea {
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.filtros-rapidos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filtros-rapidos:empty::after {
+  content: "No hay filtros rápidos guardados";
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.chip:hover,
+.chip:focus-within {
+  background: rgba(13, 110, 253, 0.12);
+  color: var(--color-primary);
+}
+
+.chip.is-active {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+}
+
+.chip-apply,
+.chip-delete {
+  border: none;
+  background: none;
+  font: inherit;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chip-delete {
+  line-height: 1;
+  font-size: 1rem;
+}
+
+.chip-apply:focus-visible,
+.chip-delete:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .lista-incidencias {
@@ -271,6 +381,112 @@ textarea {
   background: rgba(13, 110, 253, 0.08);
 }
 
+.agenda {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  display: grid;
+  gap: 1.25rem;
+}
+
+.agenda-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.agenda-leyenda {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.agenda-marcador {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  display: inline-block;
+}
+
+.agenda-calendario {
+  display: grid;
+  gap: 1rem;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.calendar-day-name {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.calendar-day {
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.5rem;
+  min-height: 64px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  position: relative;
+}
+
+.calendar-day.is-empty {
+  background: transparent;
+  border: none;
+}
+
+.calendar-date {
+  font-weight: 600;
+}
+
+.calendar-day.has-events {
+  border-color: rgba(13, 110, 253, 0.4);
+  background: rgba(13, 110, 253, 0.08);
+}
+
+.calendar-day .event-count {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.agenda-proximos {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.agenda-proximos h4 {
+  margin: 0;
+}
+
+.agenda-proximos ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.agenda-proximos li {
+  font-size: 0.9rem;
+}
+
 .detalle {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -296,6 +512,90 @@ textarea {
   margin-top: 1rem;
   display: flex;
   gap: 0.75rem;
+}
+
+.detalle-checklist,
+.detalle-comunicaciones {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.checklist {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.checklist-item input[type="checkbox"] {
+  margin-top: 0.25rem;
+}
+
+.checklist-item label {
+  margin: 0;
+  font-weight: 500;
+}
+
+.detalle-comunicaciones-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.comunicaciones-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.comunicacion-item {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  border-left: 4px solid rgba(13, 110, 253, 0.35);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.comunicacion-tipo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.comunicacion-mensaje {
+  margin: 0;
+}
+
+.comunicacion-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.form-comunicacion {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.form-comunicacion .form-row {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.form-comunicacion button {
+  justify-self: flex-start;
 }
 
 .modal {
@@ -340,6 +640,10 @@ textarea {
 
 .modal-body.grid {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.modal-body [data-span="full"] {
+  grid-column: 1 / -1;
 }
 
 .modal-close {
@@ -445,6 +749,14 @@ textarea {
 
   .detalle {
     order: 1;
+  }
+
+  .panel-diario-metricas {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .calendar-grid {
+    gap: 0.35rem;
   }
 }
 

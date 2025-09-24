@@ -17,6 +17,7 @@ import {
   orderBy,
   onSnapshot,
   getDocs,
+  deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage,
@@ -24,6 +25,7 @@ import {
   uploadBytes,
   getDownloadURL,
   listAll,
+  deleteObject,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { mapIncidenciaDoc } from "./utils.js";
 
@@ -169,12 +171,45 @@ export async function obtenerArchivosIncidencia(incidenciaId) {
     const archivos = await Promise.all(
       listado.items.map(async (itemRef) => {
         const url = await getDownloadURL(itemRef);
-        return { nombre: itemRef.name, url };
+        return { nombre: itemRef.name, url, path: itemRef.fullPath };
       })
     );
     return archivos;
   } catch (error) {
     console.error("No se pudieron obtener los archivos", error);
+    throw error;
+  }
+}
+
+export async function eliminarArchivoStorage(path) {
+  try {
+    const archivoRef = ref(storage, path);
+    await deleteObject(archivoRef);
+  } catch (error) {
+    console.error("No se pudo eliminar el archivo", error);
+    throw error;
+  }
+}
+
+export async function eliminarIncidencia(id) {
+  try {
+    const refDoc = doc(db, "incidencias", id);
+    await deleteDoc(refDoc);
+    const carpeta = ref(storage, `incidencias/${id}`);
+    try {
+      const listado = await listAll(carpeta);
+      await Promise.all(listado.items.map((item) => deleteObject(item)));
+    } catch (errorStorage) {
+      if (typeof errorStorage !== "object" || !errorStorage || !("code" in errorStorage)) {
+        throw errorStorage;
+      }
+      const codigo = /** @type {{ code?: string }} */ (errorStorage).code;
+      if (codigo !== "storage/object-not-found") {
+        throw errorStorage;
+      }
+    }
+  } catch (error) {
+    console.error("No se pudo eliminar la incidencia", error);
     throw error;
   }
 }

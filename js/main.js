@@ -160,6 +160,9 @@ function setupEventListeners() {
     const triggerIncidencia = target.closest('[data-modal-target="modal-incidencia"]');
     if (triggerIncidencia) {
       const mode = triggerIncidencia.getAttribute("data-modal-mode") ?? "create";
+      if (refs.modalIncidencia) {
+        refs.modalIncidencia.dataset.mode = mode;
+      }
       actualizarTituloModalIncidencia(mode);
       if (mode === "create") {
         refs.formIncidencia?.reset();
@@ -550,6 +553,9 @@ function setupEventListeners() {
   refs.btnEditarIncidencia?.addEventListener("click", () => {
     if (!state.seleccion) return;
     prepararFormularioIncidencia(state.seleccion);
+    if (refs.modalIncidencia) {
+      refs.modalIncidencia.dataset.mode = "edit";
+    }
     if (refs.modalIncidencia instanceof HTMLDialogElement) {
       openModal(refs.modalIncidencia);
     }

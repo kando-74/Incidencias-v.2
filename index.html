@@ -282,46 +282,6 @@
             <h4 id="detalle-checklist-titulo">Checklist de resolución</h4>
             <div id="checklist-contenido" class="checklist"></div>
           </section>
-          <section
-            class="detalle-comunicaciones"
-            aria-labelledby="detalle-comunicaciones-titulo"
-          >
-            <div class="detalle-comunicaciones-header">
-              <h4 id="detalle-comunicaciones-titulo">
-                Historial de comunicación
-              </h4>
-              <p class="hint">
-                Registra llamadas, correos o notas vinculadas a la incidencia.
-              </p>
-            </div>
-            <ul id="comunicaciones-lista" class="comunicaciones-lista"></ul>
-            <form id="form-comunicacion" class="form-comunicacion">
-              <div class="form-row">
-                <label for="comunicacion-tipo">Tipo de registro</label>
-                <select id="comunicacion-tipo" name="tipo">
-                  <option value="llamada">Llamada</option>
-                  <option value="correo">Correo</option>
-                  <option value="nota">Nota interna</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label for="comunicacion-mensaje">Detalle</label>
-                <textarea
-                  id="comunicacion-mensaje"
-                  name="mensaje"
-                  rows="3"
-                  required
-                ></textarea>
-              </div>
-              <p
-                id="comunicacion-error"
-                class="form-error"
-                role="alert"
-                aria-live="assertive"
-              ></p>
-              <button type="submit" class="btn primary">Añadir registro</button>
-            </form>
-          </section>
         </aside>
       </section>
     </main>
@@ -510,68 +470,115 @@
     <!-- FIN: MODAL-POLIZAS -->
 
     <!-- INICIO: MODAL-INCIDENCIA -->
-    <dialog id="modal-incidencia" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-incidencia-titulo">
-      <form method="dialog" id="form-incidencia" class="modal-content">
-        <header class="modal-header">
-          <h2 id="modal-incidencia-titulo">Nueva incidencia</h2>
-          <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
-        </header>
-        <div class="modal-body">
-          <input type="hidden" id="incidencia-id" name="id" />
-          <label for="incidencia-titulo">Título *</label>
-          <input id="incidencia-titulo" name="titulo" type="text" required />
+    <dialog
+      id="modal-incidencia"
+      class="modal"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="modal-incidencia-titulo"
+      data-mode="create"
+    >
+      <div class="modal-content modal-content--with-notes">
+        <form method="dialog" id="form-incidencia" class="modal-form">
+          <header class="modal-header">
+            <h2 id="modal-incidencia-titulo">Nueva incidencia</h2>
+            <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+          </header>
+          <div class="modal-body">
+            <input type="hidden" id="incidencia-id" name="id" />
+            <label for="incidencia-titulo">Título *</label>
+            <input id="incidencia-titulo" name="titulo" type="text" required />
 
-          <label for="incidencia-descripcion">Descripción</label>
-          <textarea id="incidencia-descripcion" name="descripcion" rows="4"></textarea>
+            <label for="incidencia-descripcion">Descripción</label>
+            <textarea id="incidencia-descripcion" name="descripcion" rows="4"></textarea>
 
-          <label for="incidencia-estado">Estado</label>
-          <select id="incidencia-estado" name="estado">
-            <option value="abierta">Abierta</option>
-            <option value="en_proceso">En proceso</option>
-            <option value="cerrada">Cerrada</option>
-          </select>
+            <label for="incidencia-estado">Estado</label>
+            <select id="incidencia-estado" name="estado">
+              <option value="abierta">Abierta</option>
+              <option value="en_proceso">En proceso</option>
+              <option value="cerrada">Cerrada</option>
+            </select>
 
-          <label for="incidencia-prioridad">Prioridad</label>
-          <select id="incidencia-prioridad" name="prioridad">
-            <option value="baja">Baja</option>
-            <option value="media">Media</option>
-            <option value="alta">Alta</option>
-            <option value="critica">Crítica</option>
-          </select>
+            <label for="incidencia-prioridad">Prioridad</label>
+            <select id="incidencia-prioridad" name="prioridad">
+              <option value="baja">Baja</option>
+              <option value="media">Media</option>
+              <option value="alta">Alta</option>
+              <option value="critica">Crítica</option>
+            </select>
 
-          <label for="incidencia-edificio">Edificio</label>
-          <select id="incidencia-edificio" name="edificioId"></select>
+            <label for="incidencia-edificio">Edificio</label>
+            <select id="incidencia-edificio" name="edificioId"></select>
 
-          <label for="incidencia-reparador">Reparador</label>
-          <select id="incidencia-reparador" name="reparadorId"></select>
+            <label for="incidencia-reparador">Reparador</label>
+            <select id="incidencia-reparador" name="reparadorId"></select>
 
-          <label for="incidencia-etiquetas">Etiquetas (separadas por comas)</label>
-          <input id="incidencia-etiquetas" name="etiquetas" type="text" />
+            <label for="incidencia-etiquetas">Etiquetas (separadas por comas)</label>
+            <input id="incidencia-etiquetas" name="etiquetas" type="text" />
 
-          <fieldset>
-            <legend>Seguro</legend>
-            <label class="checkbox">
-              <input id="incidencia-siniestro" name="esSiniestro" type="checkbox" />
-              Es siniestro
-            </label>
-            <label for="incidencia-poliza">Póliza</label>
-            <select id="incidencia-poliza" name="polizaId"></select>
-            <label for="incidencia-referencia">Referencia siniestro</label>
-            <input id="incidencia-referencia" name="referenciaSiniestro" type="text" />
-          </fieldset>
+            <fieldset>
+              <legend>Seguro</legend>
+              <label class="checkbox">
+                <input id="incidencia-siniestro" name="esSiniestro" type="checkbox" />
+                Es siniestro
+              </label>
+              <label for="incidencia-poliza">Póliza</label>
+              <select id="incidencia-poliza" name="polizaId"></select>
+              <label for="incidencia-referencia">Referencia siniestro</label>
+              <input id="incidencia-referencia" name="referenciaSiniestro" type="text" />
+            </fieldset>
 
-          <label for="incidencia-fecha-limite">Fecha límite</label>
-          <input id="incidencia-fecha-limite" name="fechaLimite" type="date" />
+            <label for="incidencia-fecha-limite">Fecha límite</label>
+            <input id="incidencia-fecha-limite" name="fechaLimite" type="date" />
 
-          <label for="incidencia-archivo">Archivos</label>
-          <input id="incidencia-archivo" name="archivos" type="file" multiple />
-        </div>
-        <footer class="modal-footer">
-          <span id="incidencia-error" class="form-error" role="alert" aria-live="assertive"></span>
-          <button type="submit" class="btn primary">Guardar</button>
-          <button type="button" class="btn" data-modal-close>Cancelar</button>
-        </footer>
-      </form>
+            <label for="incidencia-archivo">Archivos</label>
+            <input id="incidencia-archivo" name="archivos" type="file" multiple />
+          </div>
+          <footer class="modal-footer">
+            <span id="incidencia-error" class="form-error" role="alert" aria-live="assertive"></span>
+            <button type="submit" class="btn primary">Guardar</button>
+            <button type="button" class="btn" data-modal-close>Cancelar</button>
+          </footer>
+        </form>
+        <section
+          class="modal-comunicaciones detalle-comunicaciones"
+          aria-labelledby="modal-comunicaciones-titulo"
+        >
+          <div class="detalle-comunicaciones-header">
+            <h3 id="modal-comunicaciones-titulo">Historial de comunicación</h3>
+            <p class="hint">
+              Registra llamadas, correos o notas vinculadas a la incidencia.
+            </p>
+          </div>
+          <ul id="comunicaciones-lista" class="comunicaciones-lista"></ul>
+          <form id="form-comunicacion" class="form-comunicacion">
+            <div class="form-row">
+              <label for="comunicacion-tipo">Tipo de registro</label>
+              <select id="comunicacion-tipo" name="tipo">
+                <option value="llamada">Llamada</option>
+                <option value="correo">Correo</option>
+                <option value="nota">Nota interna</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="comunicacion-mensaje">Detalle</label>
+              <textarea
+                id="comunicacion-mensaje"
+                name="mensaje"
+                rows="3"
+                required
+              ></textarea>
+            </div>
+            <p
+              id="comunicacion-error"
+              class="form-error"
+              role="alert"
+              aria-live="assertive"
+            ></p>
+            <button type="submit" class="btn primary">Añadir registro</button>
+          </form>
+        </section>
+      </div>
     </dialog>
     <!-- FIN: MODAL-INCIDENCIA -->
 

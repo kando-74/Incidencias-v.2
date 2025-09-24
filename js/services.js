@@ -121,14 +121,16 @@ export async function obtenerCatalogo(nombre) {
 
 /**
  * Crea un nuevo edificio en el catálogo.
- * @param {{ nombre?: string; direccion?: string; contacto?: string; notas?: string }} datos
+ * @param {{ nombre?: string; direccion?: string; contacto?: string; notas?: string; defaultPolizaId?: string | null }} datos
  */
 export async function crearEdificio(datos) {
+  const defaultPolizaIdRaw = String(datos.defaultPolizaId ?? "").trim();
   const payload = {
     nombre: String(datos.nombre ?? "").trim(),
     direccion: String(datos.direccion ?? "").trim(),
     contacto: String(datos.contacto ?? "").trim(),
     notas: String(datos.notas ?? "").trim(),
+    defaultPolizaId: defaultPolizaIdRaw ? defaultPolizaIdRaw : null,
   };
   if (!payload.nombre) {
     throw new Error("El nombre del edificio es obligatorio");
@@ -149,14 +151,16 @@ export async function crearEdificio(datos) {
 /**
  * Actualiza un edificio existente.
  * @param {string} id
- * @param {{ nombre?: string; direccion?: string; contacto?: string; notas?: string }} datos
+ * @param {{ nombre?: string; direccion?: string; contacto?: string; notas?: string; defaultPolizaId?: string | null }} datos
  */
 export async function actualizarEdificio(id, datos) {
+  const defaultPolizaIdRaw = String(datos.defaultPolizaId ?? "").trim();
   const payload = {
     nombre: String(datos.nombre ?? "").trim(),
     direccion: String(datos.direccion ?? "").trim(),
     contacto: String(datos.contacto ?? "").trim(),
     notas: String(datos.notas ?? "").trim(),
+    defaultPolizaId: defaultPolizaIdRaw ? defaultPolizaIdRaw : null,
     fechaActualizacion: serverTimestamp(),
   };
   if (!payload.nombre) {
@@ -181,6 +185,76 @@ export async function eliminarEdificio(id) {
     await deleteDoc(refDoc);
   } catch (error) {
     console.error("No se pudo eliminar el edificio", error);
+    throw error;
+  }
+}
+
+/**
+ * Crea una póliza de seguro en el catálogo.
+ * @param {{ nombre?: string; numero?: string; compania?: string; telefono?: string; email?: string; notas?: string }} datos
+ */
+export async function crearPoliza(datos) {
+  const payload = {
+    nombre: String(datos.nombre ?? "").trim(),
+    numero: String(datos.numero ?? "").trim(),
+    compania: String(datos.compania ?? "").trim(),
+    telefono: String(datos.telefono ?? "").trim(),
+    email: String(datos.email ?? "").trim(),
+    notas: String(datos.notas ?? "").trim(),
+  };
+  if (!payload.nombre) {
+    throw new Error("El nombre de la póliza es obligatorio");
+  }
+  try {
+    const docRef = await addDoc(collection(db, "polizas_seguros"), {
+      ...payload,
+      fechaCreacion: serverTimestamp(),
+      fechaActualizacion: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("No se pudo crear la póliza", error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza una póliza existente del catálogo.
+ * @param {string} id
+ * @param {{ nombre?: string; numero?: string; compania?: string; telefono?: string; email?: string; notas?: string }} datos
+ */
+export async function actualizarPoliza(id, datos) {
+  const payload = {
+    nombre: String(datos.nombre ?? "").trim(),
+    numero: String(datos.numero ?? "").trim(),
+    compania: String(datos.compania ?? "").trim(),
+    telefono: String(datos.telefono ?? "").trim(),
+    email: String(datos.email ?? "").trim(),
+    notas: String(datos.notas ?? "").trim(),
+    fechaActualizacion: serverTimestamp(),
+  };
+  if (!payload.nombre) {
+    throw new Error("El nombre de la póliza es obligatorio");
+  }
+  try {
+    const refDoc = doc(db, "polizas_seguros", id);
+    await updateDoc(refDoc, payload);
+  } catch (error) {
+    console.error("No se pudo actualizar la póliza", error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina una póliza del catálogo.
+ * @param {string} id
+ */
+export async function eliminarPoliza(id) {
+  try {
+    const refDoc = doc(db, "polizas_seguros", id);
+    await deleteDoc(refDoc);
+  } catch (error) {
+    console.error("No se pudo eliminar la póliza", error);
     throw error;
   }
 }

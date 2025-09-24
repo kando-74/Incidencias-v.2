@@ -21,6 +21,9 @@ import {
   crearReparador,
   actualizarReparador,
   eliminarReparador,
+  crearPoliza,
+  actualizarPoliza,
+  eliminarPoliza,
 } from "./services.js";
 import {
   setupModales,
@@ -71,6 +74,7 @@ const state = {
   detalleActualId: null,
   edificioEditandoId: null,
   reparadorEditandoId: null,
+  polizaEditandoId: null,
 };
 
 let unsubscribeIncidencias = null;
@@ -107,6 +111,7 @@ function cacheDom() {
   refs.modalArchivos = document.getElementById("modal-archivos");
   refs.modalEdificios = document.getElementById("modal-edificios");
   refs.modalReparadores = document.getElementById("modal-reparadores");
+  refs.modalPolizas = document.getElementById("modal-polizas");
   refs.errorIncidencia = document.getElementById("incidencia-error");
   refs.btnToggleVista = document.getElementById("btn-toggle-vista");
   refs.btnExportar = document.getElementById("btn-exportar");
@@ -134,6 +139,12 @@ function cacheDom() {
   refs.btnCancelarReparador = document.getElementById("btn-cancelar-reparador");
   refs.formReparadorTitulo = document.getElementById("modal-reparadores-form-titulo");
   refs.btnGuardarReparador = document.getElementById("btn-guardar-reparador");
+  refs.formPoliza = document.getElementById("form-poliza");
+  refs.listaPolizas = document.getElementById("lista-polizas");
+  refs.errorPoliza = document.getElementById("poliza-error");
+  refs.btnCancelarPoliza = document.getElementById("btn-cancelar-poliza");
+  refs.formPolizaTitulo = document.getElementById("modal-polizas-form-titulo");
+  refs.btnGuardarPoliza = document.getElementById("btn-guardar-poliza");
   refs.columnasKanban = {
     abierta: document.getElementById("kanban-abierta"),
     en_proceso: document.getElementById("kanban-en-proceso"),
@@ -168,6 +179,11 @@ function setupEventListeners() {
     const triggerReparadores = target.closest('[data-modal-target="modal-reparadores"]');
     if (triggerReparadores) {
       prepararModalReparadores();
+    }
+
+    const triggerPolizas = target.closest('[data-modal-target="modal-polizas"]');
+    if (triggerPolizas) {
+      prepararModalPolizas();
     }
   });
 
@@ -240,6 +256,9 @@ function setupEventListeners() {
   refs.formReparador?.addEventListener("submit", handleSubmitReparador);
   refs.btnCancelarReparador?.addEventListener("click", () => prepararFormularioReparador(null));
   refs.listaReparadores?.addEventListener("click", handleAccionReparador);
+  refs.formPoliza?.addEventListener("submit", handleSubmitPoliza);
+  refs.btnCancelarPoliza?.addEventListener("click", () => prepararFormularioPoliza(null));
+  refs.listaPolizas?.addEventListener("click", handleAccionPoliza);
 
   refs.busquedaInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -331,6 +350,21 @@ function setupEventListeners() {
       refs.errorIncidencia.textContent = traducirError(error);
     }
   });
+
+  const incidenciaEdificio = refs.formIncidencia?.querySelector("#incidencia-edificio");
+  if (incidenciaEdificio instanceof HTMLSelectElement) {
+    incidenciaEdificio.addEventListener("change", () => autoAsignarPolizaPorEdificio({ force: true }));
+  }
+  const incidenciaSiniestro = refs.formIncidencia?.querySelector("#incidencia-siniestro");
+  if (incidenciaSiniestro instanceof HTMLInputElement) {
+    incidenciaSiniestro.addEventListener("change", () => {
+      if (incidenciaSiniestro.checked) {
+        autoAsignarPolizaPorEdificio({ force: true });
+      } else {
+        autoAsignarPolizaPorEdificio({ clear: true });
+      }
+    });
+  }
 
   refs.formFiltros?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -580,10 +614,17 @@ function ocultarApp() {
   state.filtroActivoId = null;
   state.detalle = { checklist: [], checklistEstado: {}, comunicaciones: [] };
   state.detalleActualId = null;
+  state.catalogos = { edificios: [], reparadores: [], polizas: [] };
+  state.edificioEditandoId = null;
+  state.reparadorEditandoId = null;
+  state.polizaEditandoId = null;
   recordatoriosMostrados.clear();
   renderFiltrosRapidos(refs.filtrosRapidos, [], null);
   if (refs.agenda) refs.agenda.innerHTML = "";
   renderDetalle(null, state.detalle);
+  renderListadoEdificios();
+  renderListadoReparadores();
+  renderListadoPolizas();
   refrescarUI();
 }
 
@@ -608,14 +649,12 @@ async function cargarCatalogos() {
     state.catalogos = { edificios, reparadores, polizas };
     actualizarSelectsEdificio(edificios);
     actualizarSelectsReparador(reparadores);
-    poblarSelect(
-      /** @type {HTMLSelectElement} */ (document.getElementById("incidencia-poliza")),
-      polizas,
-      "Selecciona una póliza"
-    );
+    actualizarSelectsPoliza(polizas);
     renderListadoEdificios();
     renderListadoReparadores();
+    renderListadoPolizas();
     refrescarUI();
+    autoAsignarPolizaPorEdificio();
   } catch (error) {
     console.error("No se pudieron cargar los catálogos", error);
     showToast("No se pudieron cargar los catálogos. Inténtalo de nuevo.", "error");
@@ -827,6 +866,7 @@ function prepararFormularioIncidencia(incidencia) {
   setFieldValue("#incidencia-fecha-limite", fecha);
   refs.errorIncidencia.textContent = "";
   actualizarTituloModalIncidencia("edit");
+  autoAsignarPolizaPorEdificio();
 }
 
 function setupDragAndDrop() {
@@ -901,9 +941,15 @@ function prepararFormularioEdificio(edificio) {
     refs.errorEdificio.textContent = "";
   }
   refs.formEdificio.reset();
+  actualizarSelectsPoliza(state.catalogos.polizas);
   const idField = refs.formEdificio.querySelector("#edificio-id");
   if (idField instanceof HTMLInputElement) {
     idField.value = esEdicion ? String(edificio.id) : "";
+  }
+  const selectPoliza = refs.formEdificio.querySelector("#edificio-poliza");
+  if (selectPoliza instanceof HTMLSelectElement) {
+    const seleccion = esEdicion ? obtenerPolizaAsignadaEdificio(edificio) : "";
+    selectPoliza.value = seleccion;
   }
   const asignar = (selector, valor) => {
     const field = refs.formEdificio?.querySelector(selector);
@@ -946,6 +992,7 @@ async function handleSubmitEdificio(event) {
     direccion: String(datos.get("direccion") ?? "").trim(),
     contacto: String(datos.get("contacto") ?? "").trim(),
     notas: String(datos.get("notas") ?? "").trim(),
+    defaultPolizaId: String(datos.get("defaultPolizaId") ?? "").trim(),
   };
   if (!payload.nombre) {
     if (refs.errorEdificio) {
@@ -998,6 +1045,7 @@ async function recargarEdificios() {
     actualizarSelectsEdificio(edificios);
     renderListadoEdificios();
     refrescarUI();
+    autoAsignarPolizaPorEdificio();
   } catch (error) {
     console.error("No se pudieron cargar los edificios", error);
     showToast("No se pudieron cargar los edificios", "error");
@@ -1083,6 +1131,14 @@ function renderListadoEdificios() {
       p.textContent = `Contacto: ${contacto}`;
       meta.appendChild(p);
     }
+    const polizaAsignada = obtenerPolizaAsignadaEdificio(edificio);
+    if (polizaAsignada) {
+      const poliza = state.catalogos.polizas.find((item) => item.id === polizaAsignada);
+      const nombrePoliza = obtenerNombrePoliza(poliza) || polizaAsignada;
+      const p = document.createElement("p");
+      p.textContent = `Póliza: ${nombrePoliza}`;
+      meta.appendChild(p);
+    }
     const notas = edificio.notas ?? edificio.observaciones ?? "";
     if (notas) {
       const p = document.createElement("p");
@@ -1142,6 +1198,391 @@ async function handleAccionEdificio(event) {
         boton.textContent = textoOriginal || "Eliminar";
       }
     }
+  }
+}
+
+function prepararModalPolizas() {
+  prepararFormularioPoliza(null);
+  renderListadoPolizas();
+  window.requestAnimationFrame(() => {
+    const nombre = refs.formPoliza?.querySelector("#poliza-nombre");
+    if (nombre instanceof HTMLInputElement) {
+      nombre.focus();
+    }
+  });
+}
+
+function prepararFormularioPoliza(poliza) {
+  if (!refs.formPoliza) return;
+  const esEdicion = Boolean(poliza && poliza.id);
+  state.polizaEditandoId = esEdicion ? String(poliza.id) : null;
+  if (refs.formPolizaTitulo) {
+    refs.formPolizaTitulo.textContent = esEdicion ? "Editar póliza" : "Añadir póliza";
+  }
+  if (refs.btnGuardarPoliza instanceof HTMLButtonElement) {
+    refs.btnGuardarPoliza.textContent = esEdicion ? "Actualizar póliza" : "Guardar póliza";
+  }
+  refs.formPoliza.dataset.mode = esEdicion ? "edit" : "create";
+  if (refs.errorPoliza) {
+    refs.errorPoliza.textContent = "";
+  }
+  refs.formPoliza.reset();
+  const idField = refs.formPoliza.querySelector("#poliza-id");
+  if (idField instanceof HTMLInputElement) {
+    idField.value = esEdicion ? String(poliza.id) : "";
+  }
+  const asignar = (selector, valor) => {
+    const field = refs.formPoliza?.querySelector(selector);
+    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+      field.value = valor ?? "";
+    }
+  };
+  if (esEdicion && poliza) {
+    asignar("#poliza-nombre", obtenerNombrePoliza(poliza));
+    asignar("#poliza-numero", poliza.numero ?? poliza.referencia ?? "");
+    asignar("#poliza-compania", poliza.compania ?? poliza.aseguradora ?? "");
+    asignar("#poliza-telefono", poliza.telefono ?? poliza.telefonoContacto ?? "");
+    asignar("#poliza-email", poliza.email ?? poliza.correo ?? "");
+    asignar("#poliza-notas", poliza.notas ?? poliza.observaciones ?? "");
+  }
+  window.requestAnimationFrame(() => {
+    const nombre = refs.formPoliza?.querySelector("#poliza-nombre");
+    if (nombre instanceof HTMLInputElement) {
+      nombre.focus();
+      if (esEdicion) {
+        nombre.select();
+      }
+    }
+  });
+}
+
+async function handleSubmitPoliza(event) {
+  event.preventDefault();
+  if (!refs.formPoliza) return;
+  const datos = new FormData(refs.formPoliza);
+  const payload = {
+    nombre: String(datos.get("nombre") ?? "").trim(),
+    numero: String(datos.get("numero") ?? "").trim(),
+    compania: String(datos.get("compania") ?? "").trim(),
+    telefono: String(datos.get("telefono") ?? "").trim(),
+    email: String(datos.get("email") ?? "").trim(),
+    notas: String(datos.get("notas") ?? "").trim(),
+  };
+  if (!payload.nombre) {
+    if (refs.errorPoliza) {
+      refs.errorPoliza.textContent = "El nombre es obligatorio";
+    }
+    return;
+  }
+  if (refs.errorPoliza) {
+    refs.errorPoliza.textContent = "";
+  }
+  const botonGuardar = refs.btnGuardarPoliza;
+  const textoOriginal = botonGuardar?.textContent ?? "";
+  if (botonGuardar instanceof HTMLButtonElement) {
+    botonGuardar.disabled = true;
+    botonGuardar.setAttribute("aria-busy", "true");
+    botonGuardar.textContent = state.polizaEditandoId ? "Actualizando..." : "Guardando...";
+  }
+  let exito = false;
+  try {
+    if (state.polizaEditandoId) {
+      await actualizarPoliza(state.polizaEditandoId, payload);
+      showToast("Póliza actualizada", "success");
+    } else {
+      await crearPoliza(payload);
+      showToast("Póliza creada", "success");
+    }
+    exito = true;
+    await recargarPolizas();
+    prepararFormularioPoliza(null);
+  } catch (error) {
+    console.error(error);
+    if (refs.errorPoliza) {
+      refs.errorPoliza.textContent = traducirError(error);
+    }
+  } finally {
+    if (botonGuardar instanceof HTMLButtonElement) {
+      botonGuardar.disabled = false;
+      botonGuardar.removeAttribute("aria-busy");
+      if (!exito) {
+        botonGuardar.textContent = textoOriginal || (state.polizaEditandoId ? "Actualizar póliza" : "Guardar póliza");
+      }
+    }
+  }
+}
+
+async function recargarPolizas() {
+  try {
+    const polizas = await obtenerCatalogo("polizas_seguros");
+    state.catalogos = { ...state.catalogos, polizas };
+    actualizarSelectsPoliza(polizas);
+    renderListadoPolizas();
+    renderListadoEdificios();
+    refrescarUI();
+    autoAsignarPolizaPorEdificio();
+  } catch (error) {
+    console.error("No se pudieron cargar las pólizas", error);
+    showToast("No se pudieron cargar las pólizas", "error");
+  }
+}
+
+function actualizarSelectsPoliza(polizas) {
+  const listado = Array.isArray(polizas) ? polizas : [];
+  const selectIncidencia = /** @type {HTMLSelectElement | null} */ (
+    document.getElementById("incidencia-poliza")
+  );
+  if (selectIncidencia) {
+    const valorActual = selectIncidencia.value;
+    poblarSelect(selectIncidencia, listado, "Selecciona una póliza");
+    const opciones = Array.from(selectIncidencia.options).map((option) => option.value);
+    if (opciones.includes(valorActual)) {
+      selectIncidencia.value = valorActual;
+    } else {
+      selectIncidencia.value = "";
+    }
+  }
+  const selectEdificio = /** @type {HTMLSelectElement | null} */ (
+    document.getElementById("edificio-poliza")
+  );
+  if (selectEdificio) {
+    const valorActual = selectEdificio.value;
+    poblarSelect(selectEdificio, listado, "Sin póliza asignada");
+    const opciones = Array.from(selectEdificio.options).map((option) => option.value);
+    if (opciones.includes(valorActual)) {
+      selectEdificio.value = valorActual;
+    } else {
+      selectEdificio.value = "";
+    }
+  }
+}
+
+function renderListadoPolizas() {
+  if (!refs.listaPolizas) return;
+  const polizas = Array.isArray(state.catalogos.polizas)
+    ? [...state.catalogos.polizas]
+    : [];
+  refs.listaPolizas.innerHTML = "";
+  if (!polizas.length) {
+    const vacio = document.createElement("li");
+    vacio.className = "hint";
+    vacio.textContent = "No hay pólizas registradas.";
+    refs.listaPolizas.appendChild(vacio);
+    return;
+  }
+  polizas.sort((a, b) =>
+    obtenerNombrePoliza(a).localeCompare(obtenerNombrePoliza(b), "es", { sensitivity: "base" })
+  );
+  const fragment = document.createDocumentFragment();
+  polizas.forEach((poliza) => {
+    const item = document.createElement("li");
+    item.className = "poliza-item";
+    item.dataset.id = poliza.id ?? "";
+
+    const header = document.createElement("header");
+    const titulo = document.createElement("h4");
+    titulo.className = "poliza-item-titulo";
+    const nombre = obtenerNombrePoliza(poliza) || "(Sin nombre)";
+    titulo.textContent = nombre;
+
+    const acciones = document.createElement("div");
+    acciones.className = "poliza-item-acciones";
+    const btnEditar = document.createElement("button");
+    btnEditar.type = "button";
+    btnEditar.className = "btn secondary";
+    btnEditar.dataset.action = "edit";
+    btnEditar.dataset.id = poliza.id ?? "";
+    btnEditar.textContent = "Editar";
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button";
+    btnEliminar.className = "btn danger";
+    btnEliminar.dataset.action = "delete";
+    btnEliminar.dataset.id = poliza.id ?? "";
+    btnEliminar.textContent = "Eliminar";
+    acciones.append(btnEditar, btnEliminar);
+    header.append(titulo, acciones);
+    item.appendChild(header);
+
+    const meta = document.createElement("div");
+    meta.className = "poliza-item-meta";
+    const numero = typeof poliza.numero === "string" ? poliza.numero.trim() : "";
+    if (numero) {
+      const p = document.createElement("p");
+      p.textContent = `Número: ${numero}`;
+      meta.appendChild(p);
+    }
+    const compania = typeof poliza.compania === "string"
+      ? poliza.compania.trim()
+      : typeof poliza.aseguradora === "string"
+      ? poliza.aseguradora.trim()
+      : "";
+    if (compania) {
+      const p = document.createElement("p");
+      p.textContent = `Compañía: ${compania}`;
+      meta.appendChild(p);
+    }
+    const telefono = typeof poliza.telefono === "string"
+      ? poliza.telefono.trim()
+      : typeof poliza.telefonoContacto === "string"
+      ? poliza.telefonoContacto.trim()
+      : "";
+    if (telefono) {
+      const p = document.createElement("p");
+      p.textContent = `Teléfono: ${telefono}`;
+      meta.appendChild(p);
+    }
+    const email = typeof poliza.email === "string"
+      ? poliza.email.trim()
+      : typeof poliza.correo === "string"
+      ? poliza.correo.trim()
+      : "";
+    if (email) {
+      const p = document.createElement("p");
+      p.textContent = `Correo: ${email}`;
+      meta.appendChild(p);
+    }
+    const notas = typeof poliza.notas === "string"
+      ? poliza.notas.trim()
+      : typeof poliza.observaciones === "string"
+      ? poliza.observaciones.trim()
+      : "";
+    if (notas) {
+      const p = document.createElement("p");
+      p.textContent = notas;
+      meta.appendChild(p);
+    }
+    if (meta.childElementCount > 0) {
+      item.appendChild(meta);
+    }
+    fragment.appendChild(item);
+  });
+  refs.listaPolizas.appendChild(fragment);
+}
+
+async function handleAccionPoliza(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const accion = target.closest("[data-action]");
+  if (!(accion instanceof HTMLElement)) return;
+  const id = accion.dataset.id ?? "";
+  if (!id) return;
+  event.preventDefault();
+
+  const tipo = accion.dataset.action;
+  if (tipo === "edit") {
+    const poliza = state.catalogos.polizas.find((item) => item.id === id);
+    if (poliza) {
+      prepararFormularioPoliza(poliza);
+    }
+    return;
+  }
+
+  if (tipo === "delete") {
+    const confirmar = window.confirm("¿Eliminar esta póliza?");
+    if (!confirmar) return;
+    const boton = accion instanceof HTMLButtonElement ? accion : null;
+    const textoOriginal = boton?.textContent ?? "";
+    if (boton) {
+      boton.disabled = true;
+      boton.setAttribute("aria-busy", "true");
+      boton.textContent = "Eliminando...";
+    }
+    try {
+      await eliminarPoliza(id);
+      showToast("Póliza eliminada", "success");
+      if (state.polizaEditandoId === id) {
+        prepararFormularioPoliza(null);
+      }
+      await recargarPolizas();
+    } catch (error) {
+      console.error(error);
+      showToast("No se pudo eliminar la póliza", "error");
+    } finally {
+      if (boton) {
+        boton.disabled = false;
+        boton.removeAttribute("aria-busy");
+        boton.textContent = textoOriginal || "Eliminar";
+      }
+    }
+  }
+}
+
+function obtenerPolizaAsignadaEdificio(edificio) {
+  if (!edificio) return "";
+  const posibles = [edificio.defaultPolizaId, edificio.polizaId];
+  for (const valor of posibles) {
+    if (typeof valor === "string" && valor.trim()) {
+      return valor.trim();
+    }
+  }
+  return "";
+}
+
+function obtenerNombrePoliza(poliza) {
+  if (!poliza) return "";
+  const posibles = [poliza.nombre, poliza.numero, poliza.referencia, poliza.label];
+  for (const valor of posibles) {
+    if (typeof valor === "string" && valor.trim()) {
+      return valor.trim();
+    }
+  }
+  if (typeof poliza.id === "string" && poliza.id.trim()) {
+    return poliza.id.trim();
+  }
+  return "";
+}
+
+function autoAsignarPolizaPorEdificio(options = {}) {
+  if (!refs.formIncidencia) return;
+  const { force = false, clear = false } = options;
+  const edificioSelect = refs.formIncidencia.querySelector("#incidencia-edificio");
+  const siniestroCheckbox = refs.formIncidencia.querySelector("#incidencia-siniestro");
+  const polizaSelect = refs.formIncidencia.querySelector("#incidencia-poliza");
+  if (
+    !(edificioSelect instanceof HTMLSelectElement) ||
+    !(siniestroCheckbox instanceof HTMLInputElement) ||
+    !(polizaSelect instanceof HTMLSelectElement)
+  ) {
+    return;
+  }
+  const siniestroActivo = siniestroCheckbox.checked;
+  const edificioId = edificioSelect.value.trim();
+  const edificio = state.catalogos.edificios.find((item) => item.id === edificioId);
+  const polizaPredeterminada = obtenerPolizaAsignadaEdificio(edificio);
+
+  if (!siniestroActivo) {
+    if (clear) {
+      if (!polizaPredeterminada || polizaSelect.value === polizaPredeterminada) {
+        polizaSelect.value = "";
+      }
+    }
+    return;
+  }
+
+  if (!edificioId) {
+    if (force) {
+      polizaSelect.value = "";
+    }
+    return;
+  }
+
+  if (!polizaPredeterminada) {
+    if (force) {
+      polizaSelect.value = "";
+    }
+    return;
+  }
+
+  const opciones = Array.from(polizaSelect.options).map((option) => option.value);
+  if (!opciones.includes(polizaPredeterminada)) {
+    if (force) {
+      polizaSelect.value = "";
+    }
+    return;
+  }
+
+  if (force || !polizaSelect.value) {
+    polizaSelect.value = polizaPredeterminada;
   }
 }
 

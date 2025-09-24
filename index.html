@@ -66,6 +66,9 @@
             <button class="btn" type="button" data-modal-target="modal-reparadores">
               Gestionar reparadores
             </button>
+            <button class="btn" type="button" data-modal-target="modal-polizas">
+              Gestionar pólizas
+            </button>
             <button class="btn" type="button" id="btn-toggle-vista" data-view="lista">
               Ver Kanban
             </button>
@@ -352,6 +355,9 @@
               <label for="edificio-contacto">Persona de contacto</label>
               <input id="edificio-contacto" name="contacto" type="text" />
 
+              <label for="edificio-poliza">Póliza asociada</label>
+              <select id="edificio-poliza" name="defaultPolizaId"></select>
+
               <label for="edificio-notas">Notas</label>
               <textarea id="edificio-notas" name="notas" rows="3"></textarea>
 
@@ -439,6 +445,69 @@
       </div>
     </dialog>
     <!-- FIN: MODAL-REPARADORES -->
+
+    <!-- INICIO: MODAL-POLIZAS -->
+    <dialog
+      id="modal-polizas"
+      class="modal"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="modal-polizas-titulo"
+    >
+      <div class="modal-content modal-content--wide">
+        <header class="modal-header">
+          <h2 id="modal-polizas-titulo">Gestión de pólizas</h2>
+          <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="modal-body modal-body--split">
+          <section class="modal-panel">
+            <h3 id="modal-polizas-form-titulo">Añadir póliza</h3>
+            <form id="form-poliza" class="form-poliza">
+              <input type="hidden" id="poliza-id" name="id" />
+
+              <label for="poliza-nombre">Nombre *</label>
+              <input id="poliza-nombre" name="nombre" type="text" required />
+
+              <label for="poliza-numero">Número de póliza</label>
+              <input id="poliza-numero" name="numero" type="text" />
+
+              <label for="poliza-compania">Compañía</label>
+              <input id="poliza-compania" name="compania" type="text" />
+
+              <label for="poliza-telefono">Teléfono de contacto</label>
+              <input id="poliza-telefono" name="telefono" type="tel" />
+
+              <label for="poliza-email">Correo de contacto</label>
+              <input id="poliza-email" name="email" type="email" />
+
+              <label for="poliza-notas">Notas</label>
+              <textarea id="poliza-notas" name="notas" rows="3"></textarea>
+
+              <p
+                id="poliza-error"
+                class="form-error"
+                role="alert"
+                aria-live="assertive"
+              ></p>
+
+              <div class="modal-footer modal-footer--inline">
+                <button type="submit" class="btn primary" id="btn-guardar-poliza">
+                  Guardar póliza
+                </button>
+                <button type="button" class="btn" id="btn-cancelar-poliza">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </section>
+          <section class="modal-panel">
+            <h3 id="modal-polizas-lista-titulo">Pólizas registradas</h3>
+            <ul id="lista-polizas" class="lista-polizas"></ul>
+          </section>
+        </div>
+      </div>
+    </dialog>
+    <!-- FIN: MODAL-POLIZAS -->
 
     <!-- INICIO: MODAL-INCIDENCIA -->
     <dialog id="modal-incidencia" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-incidencia-titulo">

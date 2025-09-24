@@ -61,6 +61,10 @@ const state = {
     reparadores: [],
     polizas: [],
   },
+  catalogoFiltros: {
+    reparadores: "",
+    polizas: "",
+  },
   filtrosGuardados: [],
   filtroActivoId: null,
   detalle: {
@@ -149,12 +153,16 @@ function cacheDom() {
   refs.btnCancelarReparador = document.getElementById("btn-cancelar-reparador");
   refs.formReparadorTitulo = document.getElementById("modal-reparadores-form-titulo");
   refs.btnGuardarReparador = document.getElementById("btn-guardar-reparador");
+  refs.reparadorBusqueda = document.getElementById("reparador-busqueda");
+  refs.reparadorResumen = document.getElementById("reparador-resumen");
   refs.formPoliza = document.getElementById("form-poliza");
   refs.listaPolizas = document.getElementById("lista-polizas");
   refs.errorPoliza = document.getElementById("poliza-error");
   refs.btnCancelarPoliza = document.getElementById("btn-cancelar-poliza");
   refs.formPolizaTitulo = document.getElementById("modal-polizas-form-titulo");
   refs.btnGuardarPoliza = document.getElementById("btn-guardar-poliza");
+  refs.polizaBusqueda = document.getElementById("poliza-busqueda");
+  refs.polizaResumen = document.getElementById("poliza-resumen");
   refs.columnasKanban = {
     abierta: document.getElementById("kanban-abierta"),
     en_proceso: document.getElementById("kanban-en-proceso"),
@@ -226,6 +234,9 @@ function setupEventListeners() {
       console.error(error);
     }
   });
+
+  setupBusquedaCatalogo(refs.reparadorBusqueda, "reparadores");
+  setupBusquedaCatalogo(refs.polizaBusqueda, "polizas");
 
   refs.listaIncidencias?.addEventListener("click", handleMoveIncidencia);
   refs.listaIncidencias?.addEventListener("click", handleSelectIncidencia);
@@ -589,6 +600,24 @@ function setupEventListeners() {
   });
 }
 
+function setupBusquedaCatalogo(input, tipo) {
+  if (!(input instanceof HTMLInputElement)) return;
+  const render = tipo === "reparadores" ? renderListadoReparadores : renderListadoPolizas;
+  const actualizar = () => {
+    state.catalogoFiltros[tipo] = input.value;
+    render();
+  };
+  input.addEventListener("input", actualizar);
+  input.addEventListener("search", actualizar);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      input.value = "";
+      actualizar();
+    }
+  });
+}
+
 function handleAuthState(user) {
   state.user = user;
   if (user) {
@@ -625,6 +654,7 @@ function ocultarApp() {
   state.detalle = { comunicaciones: [] };
   state.detalleActualId = null;
   state.catalogos = { edificios: [], reparadores: [], polizas: [] };
+  state.catalogoFiltros = { reparadores: "", polizas: "" };
   state.edificioEditandoId = null;
   state.reparadorEditandoId = null;
   state.polizaEditandoId = null;
@@ -1202,6 +1232,10 @@ async function handleAccionEdificio(event) {
 }
 
 function prepararModalPolizas() {
+  state.catalogoFiltros.polizas = "";
+  if (refs.polizaBusqueda instanceof HTMLInputElement) {
+    refs.polizaBusqueda.value = "";
+  }
   prepararFormularioPoliza(null);
   renderListadoPolizas();
   window.requestAnimationFrame(() => {
@@ -1359,22 +1393,49 @@ function actualizarSelectsPoliza(polizas) {
 
 function renderListadoPolizas() {
   if (!refs.listaPolizas) return;
-  const polizas = Array.isArray(state.catalogos.polizas)
+  const listado = Array.isArray(state.catalogos.polizas)
     ? [...state.catalogos.polizas]
     : [];
+  const total = listado.length;
+  const termino = normalizarTextoBusqueda(state.catalogoFiltros.polizas);
+  listado.sort((a, b) =>
+    obtenerNombrePoliza(a).localeCompare(obtenerNombrePoliza(b), "es", { sensitivity: "base" })
+  );
+  const visibles = termino
+    ? listado.filter((poliza) =>
+        coincideBusquedaCatalogo(
+          [
+            obtenerNombrePoliza(poliza),
+            poliza.numero ?? poliza.referencia,
+            poliza.compania ?? poliza.aseguradora,
+            poliza.telefono ?? poliza.telefonoContacto,
+            poliza.email ?? poliza.correo,
+            poliza.notas ?? poliza.observaciones,
+          ],
+          termino
+        )
+      )
+    : listado;
+
   refs.listaPolizas.innerHTML = "";
-  if (!polizas.length) {
+  actualizarResumenCatalogo(refs.polizaResumen, visibles.length, total, {
+    singular: "póliza",
+    plural: "pólizas",
+    genero: "f",
+  });
+
+  if (!visibles.length) {
     const vacio = document.createElement("li");
     vacio.className = "hint";
-    vacio.textContent = "No hay pólizas registradas.";
+    vacio.textContent = total
+      ? "No hay pólizas que coincidan con la búsqueda."
+      : "No hay pólizas registradas.";
     refs.listaPolizas.appendChild(vacio);
     return;
   }
-  polizas.sort((a, b) =>
-    obtenerNombrePoliza(a).localeCompare(obtenerNombrePoliza(b), "es", { sensitivity: "base" })
-  );
+
   const fragment = document.createDocumentFragment();
-  polizas.forEach((poliza) => {
+  visibles.forEach((poliza) => {
     const item = document.createElement("li");
     item.className = "poliza-item";
     item.dataset.id = poliza.id ?? "";
@@ -1457,6 +1518,52 @@ function renderListadoPolizas() {
     fragment.appendChild(item);
   });
   refs.listaPolizas.appendChild(fragment);
+}
+
+function normalizarTextoBusqueda(valor) {
+  if (valor == null) return "";
+  return String(valor)
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function coincideBusquedaCatalogo(campos, termino) {
+  if (!termino) return true;
+  return campos
+    .map((campo) => normalizarTextoBusqueda(campo))
+    .some((texto) => texto.includes(termino));
+}
+
+function actualizarResumenCatalogo(elemento, visibles, total, opciones) {
+  if (!(elemento instanceof HTMLElement)) return;
+  const genero = opciones.genero === "f" ? "f" : "m";
+  const sufijoSingular = genero === "f" ? "a" : "o";
+  const sufijoPlural = genero === "f" ? "as" : "os";
+  const { singular, plural } = opciones;
+  if (total === 0) {
+    elemento.textContent = `No hay ${plural} registrad${sufijoPlural}.`;
+    return;
+  }
+  if (visibles === total) {
+    if (total === 1) {
+      elemento.textContent = `1 ${singular} registrad${sufijoSingular}.`;
+    } else {
+      elemento.textContent = `${total} ${plural} registrad${sufijoPlural}.`;
+    }
+    return;
+  }
+  if (visibles <= 0) {
+    elemento.textContent = `Mostrando 0 de ${total} ${plural}.`;
+    return;
+  }
+  if (visibles === 1) {
+    elemento.textContent = `Mostrando 1 ${singular} de ${total} ${plural}.`;
+    return;
+  }
+  elemento.textContent = `Mostrando ${visibles} de ${total} ${plural}.`;
 }
 
 async function handleAccionPoliza(event) {
@@ -1601,6 +1708,10 @@ function obtenerNombreEdificio(edificio) {
 }
 
 function prepararModalReparadores() {
+  state.catalogoFiltros.reparadores = "";
+  if (refs.reparadorBusqueda instanceof HTMLInputElement) {
+    refs.reparadorBusqueda.value = "";
+  }
   prepararFormularioReparador(null);
   renderListadoReparadores();
   window.requestAnimationFrame(() => {
@@ -1743,22 +1854,48 @@ function actualizarSelectsReparador(reparadores) {
 
 function renderListadoReparadores() {
   if (!refs.listaReparadores) return;
-  const reparadores = Array.isArray(state.catalogos.reparadores)
+  const listado = Array.isArray(state.catalogos.reparadores)
     ? [...state.catalogos.reparadores]
     : [];
+  const total = listado.length;
+  const termino = normalizarTextoBusqueda(state.catalogoFiltros.reparadores);
+  listado.sort((a, b) =>
+    obtenerNombreReparador(a).localeCompare(obtenerNombreReparador(b), "es", { sensitivity: "base" })
+  );
+  const visibles = termino
+    ? listado.filter((reparador) =>
+        coincideBusquedaCatalogo(
+          [
+            obtenerNombreReparador(reparador),
+            reparador.especialidad,
+            reparador.telefono ?? reparador.contacto,
+            reparador.email ?? reparador.correo,
+            reparador.notas ?? reparador.observaciones,
+          ],
+          termino
+        )
+      )
+    : listado;
+
   refs.listaReparadores.innerHTML = "";
-  if (!reparadores.length) {
+  actualizarResumenCatalogo(refs.reparadorResumen, visibles.length, total, {
+    singular: "reparador",
+    plural: "reparadores",
+    genero: "m",
+  });
+
+  if (!visibles.length) {
     const vacio = document.createElement("li");
     vacio.className = "hint";
-    vacio.textContent = "No hay reparadores registrados.";
+    vacio.textContent = total
+      ? "No hay reparadores que coincidan con la búsqueda."
+      : "No hay reparadores registrados.";
     refs.listaReparadores.appendChild(vacio);
     return;
   }
-  reparadores.sort((a, b) =>
-    obtenerNombreReparador(a).localeCompare(obtenerNombreReparador(b), "es", { sensitivity: "base" })
-  );
+
   const fragment = document.createDocumentFragment();
-  reparadores.forEach((reparador) => {
+  visibles.forEach((reparador) => {
     const item = document.createElement("li");
     item.className = "reparador-item";
     item.dataset.id = reparador.id ?? "";

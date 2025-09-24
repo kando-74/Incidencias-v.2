@@ -1000,6 +1000,47 @@ textarea {
   gap: 0.75rem;
 }
 
+.catalogo-panel-header {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.catalogo-panel-title {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.catalogo-panel-header h3 {
+  margin: 0;
+}
+
+.catalogo-resumen {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.catalogo-busqueda {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.catalogo-busqueda input {
+  width: 100%;
+}
+
+.catalogo-busqueda .hint {
+  margin: 0;
+}
+
+@media (min-width: 720px) {
+  .catalogo-panel-header {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
 .edificio-item,
 .reparador-item,
 .poliza-item {

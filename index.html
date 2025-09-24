@@ -406,8 +406,27 @@
             </form>
           </section>
           <section class="modal-panel">
-            <h3 id="modal-reparadores-lista-titulo">Reparadores registrados</h3>
-            <ul id="lista-reparadores" class="lista-reparadores"></ul>
+            <div class="catalogo-panel-header" aria-live="off">
+              <div class="catalogo-panel-title">
+                <h3 id="modal-reparadores-lista-titulo">Reparadores registrados</h3>
+                <p id="reparador-resumen" class="catalogo-resumen" aria-live="polite"></p>
+              </div>
+              <div class="catalogo-busqueda">
+                <label class="sr-only" for="reparador-busqueda">Buscar reparador</label>
+                <input
+                  id="reparador-busqueda"
+                  type="search"
+                  placeholder="Buscar reparador"
+                  aria-describedby="reparador-busqueda-ayuda"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <p id="reparador-busqueda-ayuda" class="hint">
+                  Filtra por nombre, especialidad o datos de contacto. Pulsa Escape para limpiar.
+                </p>
+              </div>
+            </div>
+            <ul id="lista-reparadores" class="lista-reparadores" aria-live="polite"></ul>
           </section>
         </div>
       </div>
@@ -469,8 +488,27 @@
             </form>
           </section>
           <section class="modal-panel">
-            <h3 id="modal-polizas-lista-titulo">Pólizas registradas</h3>
-            <ul id="lista-polizas" class="lista-polizas"></ul>
+            <div class="catalogo-panel-header" aria-live="off">
+              <div class="catalogo-panel-title">
+                <h3 id="modal-polizas-lista-titulo">Pólizas registradas</h3>
+                <p id="poliza-resumen" class="catalogo-resumen" aria-live="polite"></p>
+              </div>
+              <div class="catalogo-busqueda">
+                <label class="sr-only" for="poliza-busqueda">Buscar póliza</label>
+                <input
+                  id="poliza-busqueda"
+                  type="search"
+                  placeholder="Buscar póliza"
+                  aria-describedby="poliza-busqueda-ayuda"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <p id="poliza-busqueda-ayuda" class="hint">
+                  Filtra por nombre, compañía o datos de contacto. Pulsa Escape para limpiar.
+                </p>
+              </div>
+            </div>
+            <ul id="lista-polizas" class="lista-polizas" aria-live="polite"></ul>
           </section>
         </div>
       </div>

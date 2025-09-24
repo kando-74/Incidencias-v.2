@@ -186,6 +186,74 @@ export async function eliminarEdificio(id) {
 }
 
 /**
+ * Crea un nuevo reparador en el catálogo.
+ * @param {{ nombre?: string; especialidad?: string; telefono?: string; email?: string; notas?: string }} datos
+ */
+export async function crearReparador(datos) {
+  const payload = {
+    nombre: String(datos.nombre ?? "").trim(),
+    especialidad: String(datos.especialidad ?? "").trim(),
+    telefono: String(datos.telefono ?? "").trim(),
+    email: String(datos.email ?? "").trim(),
+    notas: String(datos.notas ?? "").trim(),
+  };
+  if (!payload.nombre) {
+    throw new Error("El nombre del reparador es obligatorio");
+  }
+  try {
+    const docRef = await addDoc(collection(db, "reparadores"), {
+      ...payload,
+      fechaCreacion: serverTimestamp(),
+      fechaActualizacion: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("No se pudo crear el reparador", error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza un reparador existente.
+ * @param {string} id
+ * @param {{ nombre?: string; especialidad?: string; telefono?: string; email?: string; notas?: string }} datos
+ */
+export async function actualizarReparador(id, datos) {
+  const payload = {
+    nombre: String(datos.nombre ?? "").trim(),
+    especialidad: String(datos.especialidad ?? "").trim(),
+    telefono: String(datos.telefono ?? "").trim(),
+    email: String(datos.email ?? "").trim(),
+    notas: String(datos.notas ?? "").trim(),
+    fechaActualizacion: serverTimestamp(),
+  };
+  if (!payload.nombre) {
+    throw new Error("El nombre del reparador es obligatorio");
+  }
+  try {
+    const refDoc = doc(db, "reparadores", id);
+    await updateDoc(refDoc, payload);
+  } catch (error) {
+    console.error("No se pudo actualizar el reparador", error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un reparador del catálogo.
+ * @param {string} id
+ */
+export async function eliminarReparador(id) {
+  try {
+    const refDoc = doc(db, "reparadores", id);
+    await deleteDoc(refDoc);
+  } catch (error) {
+    console.error("No se pudo eliminar el reparador", error);
+    throw error;
+  }
+}
+
+/**
  * Actualiza el listado de archivos almacenado en la incidencia.
  * @param {string} incidenciaId
  * @param {Array<Record<string, any>>} archivos

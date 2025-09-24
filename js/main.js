@@ -18,6 +18,9 @@ import {
   crearEdificio,
   actualizarEdificio,
   eliminarEdificio,
+  crearReparador,
+  actualizarReparador,
+  eliminarReparador,
 } from "./services.js";
 import {
   setupModales,
@@ -67,6 +70,7 @@ const state = {
   },
   detalleActualId: null,
   edificioEditandoId: null,
+  reparadorEditandoId: null,
 };
 
 let unsubscribeIncidencias = null;
@@ -102,6 +106,7 @@ function cacheDom() {
   refs.modalFiltros = document.getElementById("modal-filtros");
   refs.modalArchivos = document.getElementById("modal-archivos");
   refs.modalEdificios = document.getElementById("modal-edificios");
+  refs.modalReparadores = document.getElementById("modal-reparadores");
   refs.errorIncidencia = document.getElementById("incidencia-error");
   refs.btnToggleVista = document.getElementById("btn-toggle-vista");
   refs.btnExportar = document.getElementById("btn-exportar");
@@ -123,6 +128,12 @@ function cacheDom() {
   refs.btnCancelarEdificio = document.getElementById("btn-cancelar-edificio");
   refs.formEdificioTitulo = document.getElementById("modal-edificios-form-titulo");
   refs.btnGuardarEdificio = document.getElementById("btn-guardar-edificio");
+  refs.formReparador = document.getElementById("form-reparador");
+  refs.listaReparadores = document.getElementById("lista-reparadores");
+  refs.errorReparador = document.getElementById("reparador-error");
+  refs.btnCancelarReparador = document.getElementById("btn-cancelar-reparador");
+  refs.formReparadorTitulo = document.getElementById("modal-reparadores-form-titulo");
+  refs.btnGuardarReparador = document.getElementById("btn-guardar-reparador");
   refs.columnasKanban = {
     abierta: document.getElementById("kanban-abierta"),
     en_proceso: document.getElementById("kanban-en-proceso"),
@@ -152,6 +163,11 @@ function setupEventListeners() {
     const triggerEdificios = target.closest('[data-modal-target="modal-edificios"]');
     if (triggerEdificios) {
       prepararModalEdificios();
+    }
+
+    const triggerReparadores = target.closest('[data-modal-target="modal-reparadores"]');
+    if (triggerReparadores) {
+      prepararModalReparadores();
     }
   });
 
@@ -221,6 +237,9 @@ function setupEventListeners() {
   refs.formEdificio?.addEventListener("submit", handleSubmitEdificio);
   refs.btnCancelarEdificio?.addEventListener("click", () => prepararFormularioEdificio(null));
   refs.listaEdificios?.addEventListener("click", handleAccionEdificio);
+  refs.formReparador?.addEventListener("submit", handleSubmitReparador);
+  refs.btnCancelarReparador?.addEventListener("click", () => prepararFormularioReparador(null));
+  refs.listaReparadores?.addEventListener("click", handleAccionReparador);
 
   refs.busquedaInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -588,22 +607,14 @@ async function cargarCatalogos() {
     ]);
     state.catalogos = { edificios, reparadores, polizas };
     actualizarSelectsEdificio(edificios);
-    poblarSelect(
-      /** @type {HTMLSelectElement} */ (document.getElementById("incidencia-reparador")),
-      reparadores,
-      "Selecciona un reparador"
-    );
+    actualizarSelectsReparador(reparadores);
     poblarSelect(
       /** @type {HTMLSelectElement} */ (document.getElementById("incidencia-poliza")),
       polizas,
       "Selecciona una póliza"
     );
-    poblarSelect(
-      /** @type {HTMLSelectElement} */ (document.getElementById("filtro-reparador")),
-      reparadores,
-      "Todos"
-    );
     renderListadoEdificios();
+    renderListadoReparadores();
     refrescarUI();
   } catch (error) {
     console.error("No se pudieron cargar los catálogos", error);
@@ -1148,6 +1159,305 @@ function obtenerNombreEdificio(edificio) {
   return "";
 }
 
+function prepararModalReparadores() {
+  prepararFormularioReparador(null);
+  renderListadoReparadores();
+  window.requestAnimationFrame(() => {
+    const nombre = refs.formReparador?.querySelector("#reparador-nombre");
+    if (nombre instanceof HTMLInputElement) {
+      nombre.focus();
+    }
+  });
+}
+
+function prepararFormularioReparador(reparador) {
+  if (!refs.formReparador) return;
+  const esEdicion = Boolean(reparador && reparador.id);
+  state.reparadorEditandoId = esEdicion ? String(reparador.id) : null;
+  if (refs.formReparadorTitulo) {
+    refs.formReparadorTitulo.textContent = esEdicion ? "Editar reparador" : "Añadir reparador";
+  }
+  if (refs.btnGuardarReparador instanceof HTMLButtonElement) {
+    refs.btnGuardarReparador.textContent = esEdicion ? "Actualizar reparador" : "Guardar reparador";
+  }
+  refs.formReparador.dataset.mode = esEdicion ? "edit" : "create";
+  if (refs.errorReparador) {
+    refs.errorReparador.textContent = "";
+  }
+  refs.formReparador.reset();
+  const idField = refs.formReparador.querySelector("#reparador-id");
+  if (idField instanceof HTMLInputElement) {
+    idField.value = esEdicion ? String(reparador.id) : "";
+  }
+  const asignar = (selector, valor) => {
+    const field = refs.formReparador?.querySelector(selector);
+    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+      field.value = valor ?? "";
+    }
+  };
+  if (esEdicion && reparador) {
+    asignar("#reparador-nombre", obtenerNombreReparador(reparador));
+    asignar("#reparador-especialidad", reparador.especialidad ?? "");
+    asignar("#reparador-telefono", reparador.telefono ?? reparador.contacto ?? "");
+    asignar("#reparador-email", reparador.email ?? reparador.correo ?? "");
+    asignar("#reparador-notas", reparador.notas ?? reparador.observaciones ?? "");
+  }
+  window.requestAnimationFrame(() => {
+    const nombre = refs.formReparador?.querySelector("#reparador-nombre");
+    if (nombre instanceof HTMLInputElement) {
+      nombre.focus();
+      if (esEdicion) {
+        nombre.select();
+      }
+    }
+  });
+}
+
+async function handleSubmitReparador(event) {
+  event.preventDefault();
+  if (!refs.formReparador) return;
+  const datos = new FormData(refs.formReparador);
+  const payload = {
+    nombre: String(datos.get("nombre") ?? "").trim(),
+    especialidad: String(datos.get("especialidad") ?? "").trim(),
+    telefono: String(datos.get("telefono") ?? "").trim(),
+    email: String(datos.get("email") ?? "").trim(),
+    notas: String(datos.get("notas") ?? "").trim(),
+  };
+  if (!payload.nombre) {
+    if (refs.errorReparador) {
+      refs.errorReparador.textContent = "El nombre es obligatorio";
+    }
+    return;
+  }
+  if (refs.errorReparador) {
+    refs.errorReparador.textContent = "";
+  }
+  const botonGuardar = refs.btnGuardarReparador;
+  const textoOriginal = botonGuardar?.textContent ?? "";
+  if (botonGuardar instanceof HTMLButtonElement) {
+    botonGuardar.disabled = true;
+    botonGuardar.setAttribute("aria-busy", "true");
+    botonGuardar.textContent = state.reparadorEditandoId ? "Actualizando..." : "Guardando...";
+  }
+  let exito = false;
+  try {
+    if (state.reparadorEditandoId) {
+      await actualizarReparador(state.reparadorEditandoId, payload);
+      showToast("Reparador actualizado", "success");
+    } else {
+      await crearReparador(payload);
+      showToast("Reparador creado", "success");
+    }
+    exito = true;
+    await recargarReparadores();
+    prepararFormularioReparador(null);
+  } catch (error) {
+    console.error(error);
+    if (refs.errorReparador) {
+      refs.errorReparador.textContent = traducirError(error);
+    }
+  } finally {
+    if (botonGuardar instanceof HTMLButtonElement) {
+      botonGuardar.disabled = false;
+      botonGuardar.removeAttribute("aria-busy");
+      if (!exito) {
+        botonGuardar.textContent = textoOriginal || (state.reparadorEditandoId ? "Actualizar reparador" : "Guardar reparador");
+      }
+    }
+  }
+}
+
+async function recargarReparadores() {
+  try {
+    const reparadores = await obtenerCatalogo("reparadores");
+    state.catalogos = { ...state.catalogos, reparadores };
+    actualizarSelectsReparador(reparadores);
+    renderListadoReparadores();
+    refrescarUI();
+  } catch (error) {
+    console.error("No se pudieron cargar los reparadores", error);
+    showToast("No se pudieron cargar los reparadores", "error");
+  }
+}
+
+function actualizarSelectsReparador(reparadores) {
+  const selectIncidencia = /** @type {HTMLSelectElement | null} */ (
+    document.getElementById("incidencia-reparador")
+  );
+  if (selectIncidencia) {
+    const valorActual = selectIncidencia.value;
+    poblarSelect(selectIncidencia, reparadores, "Selecciona un reparador");
+    selectIncidencia.value = valorActual;
+  }
+  const selectFiltro = /** @type {HTMLSelectElement | null} */ (
+    document.getElementById("filtro-reparador")
+  );
+  if (selectFiltro) {
+    const valorFiltro = selectFiltro.value;
+    poblarSelect(selectFiltro, reparadores, "Todos");
+    selectFiltro.value = valorFiltro;
+  }
+}
+
+function renderListadoReparadores() {
+  if (!refs.listaReparadores) return;
+  const reparadores = Array.isArray(state.catalogos.reparadores)
+    ? [...state.catalogos.reparadores]
+    : [];
+  refs.listaReparadores.innerHTML = "";
+  if (!reparadores.length) {
+    const vacio = document.createElement("li");
+    vacio.className = "hint";
+    vacio.textContent = "No hay reparadores registrados.";
+    refs.listaReparadores.appendChild(vacio);
+    return;
+  }
+  reparadores.sort((a, b) =>
+    obtenerNombreReparador(a).localeCompare(obtenerNombreReparador(b), "es", { sensitivity: "base" })
+  );
+  const fragment = document.createDocumentFragment();
+  reparadores.forEach((reparador) => {
+    const item = document.createElement("li");
+    item.className = "reparador-item";
+    item.dataset.id = reparador.id ?? "";
+
+    const header = document.createElement("header");
+    const titulo = document.createElement("h4");
+    titulo.className = "reparador-item-titulo";
+    const nombre = obtenerNombreReparador(reparador) || "(Sin nombre)";
+    titulo.textContent = nombre;
+
+    const acciones = document.createElement("div");
+    acciones.className = "reparador-item-acciones";
+    const btnEditar = document.createElement("button");
+    btnEditar.type = "button";
+    btnEditar.className = "btn secondary";
+    btnEditar.dataset.action = "edit";
+    btnEditar.dataset.id = reparador.id ?? "";
+    btnEditar.textContent = "Editar";
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button";
+    btnEliminar.className = "btn danger";
+    btnEliminar.dataset.action = "delete";
+    btnEliminar.dataset.id = reparador.id ?? "";
+    btnEliminar.textContent = "Eliminar";
+    acciones.append(btnEditar, btnEliminar);
+    header.append(titulo, acciones);
+    item.appendChild(header);
+
+    const meta = document.createElement("div");
+    meta.className = "reparador-item-meta";
+    const especialidad =
+      typeof reparador.especialidad === "string" ? reparador.especialidad.trim() : "";
+    if (especialidad) {
+      const p = document.createElement("p");
+      p.textContent = `Especialidad: ${especialidad}`;
+      meta.appendChild(p);
+    }
+    const telefono =
+      typeof reparador.telefono === "string"
+        ? reparador.telefono.trim()
+        : typeof reparador.contacto === "string"
+        ? reparador.contacto.trim()
+        : "";
+    if (telefono) {
+      const p = document.createElement("p");
+      p.textContent = `Teléfono: ${telefono}`;
+      meta.appendChild(p);
+    }
+    const email =
+      typeof reparador.email === "string"
+        ? reparador.email.trim()
+        : typeof reparador.correo === "string"
+        ? reparador.correo.trim()
+        : "";
+    if (email) {
+      const p = document.createElement("p");
+      p.textContent = `Correo: ${email}`;
+      meta.appendChild(p);
+    }
+    const notas =
+      typeof reparador.notas === "string"
+        ? reparador.notas.trim()
+        : typeof reparador.observaciones === "string"
+        ? reparador.observaciones.trim()
+        : "";
+    if (notas) {
+      const p = document.createElement("p");
+      p.textContent = notas;
+      meta.appendChild(p);
+    }
+    if (meta.childElementCount > 0) {
+      item.appendChild(meta);
+    }
+    fragment.appendChild(item);
+  });
+  refs.listaReparadores.appendChild(fragment);
+}
+
+async function handleAccionReparador(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const accion = target.closest("[data-action]");
+  if (!(accion instanceof HTMLElement)) return;
+  const id = accion.dataset.id ?? "";
+  if (!id) return;
+  event.preventDefault();
+
+  const tipo = accion.dataset.action;
+  if (tipo === "edit") {
+    const reparador = state.catalogos.reparadores.find((item) => item.id === id);
+    if (reparador) {
+      prepararFormularioReparador(reparador);
+    }
+    return;
+  }
+
+  if (tipo === "delete") {
+    const confirmar = window.confirm("¿Eliminar este reparador?");
+    if (!confirmar) return;
+    const boton = accion instanceof HTMLButtonElement ? accion : null;
+    const textoOriginal = boton?.textContent ?? "";
+    if (boton) {
+      boton.disabled = true;
+      boton.setAttribute("aria-busy", "true");
+      boton.textContent = "Eliminando...";
+    }
+    try {
+      await eliminarReparador(id);
+      showToast("Reparador eliminado", "success");
+      if (state.reparadorEditandoId === id) {
+        prepararFormularioReparador(null);
+      }
+      await recargarReparadores();
+    } catch (error) {
+      console.error(error);
+      showToast("No se pudo eliminar el reparador", "error");
+    } finally {
+      if (boton) {
+        boton.disabled = false;
+        boton.removeAttribute("aria-busy");
+        boton.textContent = textoOriginal || "Eliminar";
+      }
+    }
+  }
+}
+
+function obtenerNombreReparador(reparador) {
+  if (!reparador) return "";
+  const posibles = [reparador.nombre, reparador.razonSocial, reparador.label];
+  for (const valor of posibles) {
+    if (typeof valor === "string" && valor.trim()) {
+      return valor.trim();
+    }
+  }
+  if (typeof reparador.id === "string" && reparador.id.trim()) {
+    return reparador.id.trim();
+  }
+  return "";
+}
+
 function traducirError(error) {
   if (!error) return "Ha ocurrido un error";
   const mensaje = typeof error === "string" ? error : error.message ?? "Ha ocurrido un error";
@@ -1191,8 +1501,8 @@ function enriquecerIncidencia(incidencia) {
   const poliza = state.catalogos.polizas.find((item) => item.id === incidencia.polizaId);
   return {
     ...incidencia,
-    edificioNombre: edificio?.nombre ?? edificio?.razonSocial ?? incidencia.edificioId ?? "",
-    reparadorNombre: reparador?.nombre ?? reparador?.razonSocial ?? incidencia.reparadorId ?? "",
+    edificioNombre: obtenerNombreEdificio(edificio) || incidencia.edificioId || "",
+    reparadorNombre: obtenerNombreReparador(reparador) || incidencia.reparadorId || "",
     polizaNombre: poliza?.nombre ?? poliza?.referencia ?? incidencia.polizaId ?? "",
   };
 }

@@ -199,13 +199,48 @@ export function calcularResumen(incidencias) {
 export function calcularResumenDiario(incidencias) {
   const ahora = new Date();
   const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  const finHoy = new Date(inicioHoy.getTime() + 24 * 60 * 60 * 1000 - 1);
   const limite48h = new Date(ahora.getTime() + 48 * 60 * 60 * 1000);
-  return incidencias.reduce(
+  const inicioAyer = new Date(inicioHoy.getTime() - 24 * 60 * 60 * 1000);
+  const limiteAyer = new Date(inicioAyer.getTime() + 48 * 60 * 60 * 1000);
+  const inicioSemanaActual = new Date(inicioHoy.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const inicioSemanaAnterior = new Date(inicioSemanaActual.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const finSemanaAnterior = new Date(inicioSemanaActual.getTime() - 1);
+  let abiertasSemanaActual = 0;
+  let abiertasSemanaAnterior = 0;
+  let proximasAyer = 0;
+  let nuevasAyer = 0;
+  let sinAsignarSemanaActual = 0;
+  let sinAsignarSemanaAnterior = 0;
+  const base = incidencias.reduce(
     (acc, incidencia) => {
       const estado = incidencia.estado ?? "abierta";
-      if (estado === "abierta") acc.abiertas += 1;
-      if (!incidencia.reparadorId) acc.sinAsignar += 1;
       const fechaLimite = toDateValue(incidencia.fechaLimite);
+      const fechaCreacion = toDateValue(incidencia.fechaCreacion);
+      if (estado === "abierta") {
+        acc.abiertas += 1;
+        if (fechaCreacion && fechaCreacion >= inicioSemanaActual && fechaCreacion <= finHoy) {
+          abiertasSemanaActual += 1;
+        } else if (
+          fechaCreacion &&
+          fechaCreacion >= inicioSemanaAnterior &&
+          fechaCreacion <= finSemanaAnterior
+        ) {
+          abiertasSemanaAnterior += 1;
+        }
+      }
+      if (!incidencia.reparadorId) {
+        acc.sinAsignar += 1;
+        if (fechaCreacion && fechaCreacion >= inicioSemanaActual && fechaCreacion <= finHoy) {
+          sinAsignarSemanaActual += 1;
+        } else if (
+          fechaCreacion &&
+          fechaCreacion >= inicioSemanaAnterior &&
+          fechaCreacion <= finSemanaAnterior
+        ) {
+          sinAsignarSemanaAnterior += 1;
+        }
+      }
       if (
         fechaLimite &&
         fechaLimite >= ahora &&
@@ -214,14 +249,45 @@ export function calcularResumenDiario(incidencias) {
       ) {
         acc.proximas += 1;
       }
-      const fechaCreacion = toDateValue(incidencia.fechaCreacion);
+      if (
+        fechaLimite &&
+        fechaLimite >= inicioAyer &&
+        fechaLimite <= limiteAyer &&
+        estado !== "cerrada"
+      ) {
+        proximasAyer += 1;
+      }
       if (fechaCreacion && esMismoDia(fechaCreacion, inicioHoy)) {
         acc.nuevas += 1;
+      }
+      if (fechaCreacion && esMismoDia(fechaCreacion, inicioAyer)) {
+        nuevasAyer += 1;
       }
       return acc;
     },
     { abiertas: 0, proximas: 0, sinAsignar: 0, nuevas: 0 }
   );
+  return {
+    ...base,
+    deltas: {
+      abiertas: {
+        diferencia: abiertasSemanaActual - abiertasSemanaAnterior,
+        etiqueta: "vs. semana anterior",
+      },
+      proximas: {
+        diferencia: base.proximas - proximasAyer,
+        etiqueta: "vs. ayer",
+      },
+      sinAsignar: {
+        diferencia: sinAsignarSemanaActual - sinAsignarSemanaAnterior,
+        etiqueta: "vs. semana anterior",
+      },
+      nuevas: {
+        diferencia: base.nuevas - nuevasAyer,
+        etiqueta: "vs. ayer",
+      },
+    },
+  };
 }
 
 /**

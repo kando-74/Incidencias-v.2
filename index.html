@@ -81,19 +81,47 @@
             <dl class="panel-diario-metricas">
               <div class="panel-diario-item">
                 <dt>Abiertas</dt>
-                <dd id="metric-abiertas">0</dd>
+                <dd>
+                  <span id="metric-abiertas" class="metric-value">0</span>
+                  <span
+                    id="metric-abiertas-delta"
+                    class="metric-delta"
+                    aria-live="polite"
+                  ></span>
+                </dd>
               </div>
               <div class="panel-diario-item">
                 <dt>Por vencer (&lt;48h)</dt>
-                <dd id="metric-proximas">0</dd>
+                <dd>
+                  <span id="metric-proximas" class="metric-value">0</span>
+                  <span
+                    id="metric-proximas-delta"
+                    class="metric-delta"
+                    aria-live="polite"
+                  ></span>
+                </dd>
               </div>
               <div class="panel-diario-item">
                 <dt>Sin asignar</dt>
-                <dd id="metric-sin-asignar">0</dd>
+                <dd>
+                  <span id="metric-sin-asignar" class="metric-value">0</span>
+                  <span
+                    id="metric-sin-asignar-delta"
+                    class="metric-delta"
+                    aria-live="polite"
+                  ></span>
+                </dd>
               </div>
               <div class="panel-diario-item">
                 <dt>Nuevas hoy</dt>
-                <dd id="metric-nuevas">0</dd>
+                <dd>
+                  <span id="metric-nuevas" class="metric-value">0</span>
+                  <span
+                    id="metric-nuevas-delta"
+                    class="metric-delta"
+                    aria-live="polite"
+                  ></span>
+                </dd>
               </div>
             </dl>
           </article>
@@ -154,7 +182,13 @@
             class="filtros-rapidos"
             aria-live="polite"
           ></div>
-          <div id="lista-incidencias" role="list" class="lista-incidencias"></div>
+          <div
+            id="lista-incidencias"
+            role="listbox"
+            aria-label="Incidencias"
+            class="lista-incidencias"
+            aria-activedescendant=""
+          ></div>
         </section>
 
         <section
@@ -166,15 +200,33 @@
         >
           <div class="kanban-column" data-estado="abierta">
             <h3 id="kanban-abierta-titulo">Abiertas</h3>
-            <div id="kanban-abierta" class="kanban-list" role="list" aria-labelledby="kanban-abierta-titulo"></div>
+            <div
+              id="kanban-abierta"
+              class="kanban-list"
+              role="listbox"
+              aria-labelledby="kanban-abierta-titulo"
+              aria-activedescendant=""
+            ></div>
           </div>
           <div class="kanban-column" data-estado="en_proceso">
             <h3 id="kanban-proceso-titulo">En proceso</h3>
-            <div id="kanban-en-proceso" class="kanban-list" role="list" aria-labelledby="kanban-proceso-titulo"></div>
+            <div
+              id="kanban-en-proceso"
+              class="kanban-list"
+              role="listbox"
+              aria-labelledby="kanban-proceso-titulo"
+              aria-activedescendant=""
+            ></div>
           </div>
           <div class="kanban-column" data-estado="cerrada">
             <h3 id="kanban-cerrada-titulo">Cerradas</h3>
-            <div id="kanban-cerrada" class="kanban-list" role="list" aria-labelledby="kanban-cerrada-titulo"></div>
+            <div
+              id="kanban-cerrada"
+              class="kanban-list"
+              role="listbox"
+              aria-labelledby="kanban-cerrada-titulo"
+              aria-activedescendant=""
+            ></div>
           </div>
         </section>
 

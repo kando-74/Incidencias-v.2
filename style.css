@@ -338,6 +338,16 @@ textarea {
   gap: 0.75rem;
 }
 
+.print-resumen,
+.print-lista-cabecera,
+.print-detalle {
+  display: none;
+}
+
+.linea-print-only {
+  display: none;
+}
+
 .tarjeta-incidencia {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
@@ -708,34 +718,10 @@ textarea {
   gap: 0.75rem;
 }
 
-.detalle-checklist,
 .detalle-comunicaciones {
   margin-top: 1.5rem;
   display: grid;
   gap: 0.75rem;
-}
-
-.checklist {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.checklist-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
-}
-
-.checklist-item input[type="checkbox"] {
-  margin-top: 0.25rem;
-}
-
-.checklist-item label {
-  margin: 0;
-  font-weight: 500;
 }
 
 .detalle-comunicaciones-header {
@@ -1176,8 +1162,19 @@ textarea {
 }
 
 @media print {
+  @page {
+    margin: 1.2cm;
+  }
+
   body {
     background: #ffffff;
+    color: #000000;
+    font-size: 11px;
+    margin: 0;
+  }
+
+  .app-main {
+    padding: 0;
   }
 
   .app-header,
@@ -1187,14 +1184,264 @@ textarea {
   #btn-toggle-vista,
   #btn-logout,
   dialog,
-  .modal-backdrop {
+  .modal-backdrop,
+  .panel-diario,
+  .resumen,
+  #kanban-board,
+  .kanban,
+  .listado-filtros,
+  #filtros-rapidos,
+  .detalle,
+  .detalle-acciones,
+  .resumen,
+  .toolbar-actions {
     display: none !important;
   }
 
-  .lista-incidencias,
-  .kanban,
-  .detalle {
+  body[data-print-mode="detalle"] .detalle {
+    display: block !important;
+  }
+
+  body[data-print-mode="detalle"] #detalle-panel {
+    width: 100%;
+    border: none;
     box-shadow: none;
+    padding: 0;
+  }
+
+  body[data-print-mode="detalle"] .detalle dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 1rem;
+  }
+
+  body[data-print-mode="detalle"] .detalle-acciones {
+    display: none !important;
+  }
+
+  body[data-print-mode="detalle"] #print-detalle {
+    display: block !important;
+  }
+
+  body[data-print-mode="detalle"] .listado,
+  body[data-print-mode="detalle"] .panel-diario,
+  body[data-print-mode="detalle"] .resumen,
+  body[data-print-mode="detalle"] #kanban-board {
+    display: none !important;
+  }
+
+  body[data-print-mode="detalle"] .print-resumen,
+  body[data-print-mode="detalle"] .print-lista-cabecera {
+    display: none !important;
+  }
+
+  body:not([data-print-mode="detalle"]) .detalle {
+    display: none !important;
+  }
+
+  body:not([data-print-mode="detalle"]) #print-detalle {
+    display: none !important;
+  }
+
+  .print-resumen {
+    display: block !important;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .print-resumen__titulo {
+    margin: 0 0 0.2rem 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .print-resumen__lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.85rem;
+  }
+
+  .print-resumen__lista li {
+    margin-bottom: 0.15rem;
+  }
+
+  .print-resumen__rango,
+  .print-resumen__texto {
+    font-size: 0.85rem;
+    margin: 0.2rem 0 0 0;
+  }
+
+  .print-lista-cabecera {
+    display: grid !important;
+    grid-template-columns: 1.1fr 1.4fr 2fr 0.9fr 0.8fr 0.8fr 0.9fr 1.2fr;
+    gap: 0.3rem;
+    font-weight: 600;
+    border-bottom: 1px solid #000;
+    padding-bottom: 0.2rem;
+    margin-bottom: 0.2rem;
+    font-size: 0.85rem;
+  }
+
+  .lista-incidencias {
+    display: block;
+  }
+
+  .tarjeta-incidencia--linea {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr 2fr 0.9fr 0.8fr 0.8fr 0.9fr 1.2fr;
+    gap: 0.3rem;
+    padding: 0.25rem 0;
+    border: none;
+    border-bottom: 1px solid #c7c7c7;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .tarjeta-incidencia--linea .linea-titulo {
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: normal;
+    order: 2;
+  }
+
+  .tarjeta-incidencia--linea .linea-edificio,
+  .tarjeta-incidencia--linea .linea-fecha,
+  .tarjeta-incidencia--linea .linea-prioridad-text,
+  .tarjeta-incidencia--linea .linea-estado-text,
+  .tarjeta-incidencia--linea .linea-print-only {
+    font-size: 0.8rem;
+    color: #000;
+    white-space: normal;
+  }
+
+  .tarjeta-incidencia--linea .linea-edificio {
+    order: 1;
+  }
+
+  .tarjeta-incidencia--linea .linea-descripcion {
+    order: 3;
+  }
+
+  .tarjeta-incidencia--linea .linea-fecha-alta {
+    order: 4;
+  }
+
+  .tarjeta-incidencia--linea .linea-prioridad-text {
+    order: 5;
+  }
+
+  .tarjeta-incidencia--linea .linea-estado-text {
+    order: 6;
+  }
+
+  .tarjeta-incidencia--linea .linea-fecha {
+    order: 7;
+  }
+
+  .tarjeta-incidencia--linea .linea-asignado {
+    order: 8;
+  }
+
+  .linea-print-only {
+    display: block !important;
+  }
+
+  .tarjeta-incidencia--linea .linea-estado-text,
+  .tarjeta-incidencia--linea .linea-prioridad-text {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-weight: 600;
+  }
+
+  .linea-indicador {
+    display: none !important;
+  }
+
+  .tarjeta-incidencia--linea .linea-acciones {
+    display: none !important;
+  }
+
+  .tarjeta-incidencia--linea .linea-fecha.is-alerta {
+    color: #d32f2f;
+  }
+
+  .print-detalle__wrapper {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .print-detalle__titulo {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
+  .print-detalle__meta {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #555555;
+  }
+
+  .print-detalle__descripcion h3,
+  .print-detalle__historial h3 {
+    margin: 0 0 0.2rem 0;
+    font-size: 1rem;
+  }
+
+  .print-detalle__descripcion p {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .print-detalle__datos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem 1rem;
+    margin: 0;
+  }
+
+  .print-detalle__datos dt {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .print-detalle__datos dd {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  .print-detalle__historial-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .print-detalle__historial-item {
+    border: 1px solid #d9d9d9;
+    padding: 0.45rem 0.55rem;
+    border-radius: 4px;
+  }
+
+  .print-detalle__historial-item--vacio {
+    font-size: 0.85rem;
+  }
+
+  .print-detalle__historial-tipo {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .print-detalle__historial-mensaje {
+    margin: 0.2rem 0;
+    font-size: 0.85rem;
+  }
+
+  .print-detalle__historial-meta {
+    font-size: 0.75rem;
+    color: #555555;
   }
 }
 

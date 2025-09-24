@@ -168,7 +168,7 @@ export function renderDetalle(incidencia) {
     btnEditar: document.getElementById("btn-editar-incidencia"),
     btnArchivos: document.getElementById("btn-abrir-archivos"),
     btnEliminar: document.getElementById("btn-eliminar-incidencia"),
-    checklist: document.getElementById("checklist-contenido"),
+    btnImprimir: document.getElementById("btn-imprimir-detalle"),
     comunicaciones: document.getElementById("comunicaciones-lista"),
     formComunicacion: document.getElementById("form-comunicacion"),
     errorComunicacion: document.getElementById("comunicacion-error"),
@@ -187,6 +187,7 @@ export function renderDetalle(incidencia) {
     detalle.btnEditar?.setAttribute("disabled", "true");
     detalle.btnArchivos?.setAttribute("disabled", "true");
     detalle.btnEliminar?.setAttribute("disabled", "true");
+    detalle.btnImprimir?.setAttribute("disabled", "true");
     if (detalle.btnEditar?.dataset.id) {
       delete detalle.btnEditar.dataset.id;
     }
@@ -195,9 +196,6 @@ export function renderDetalle(incidencia) {
     }
     if (detalle.btnEliminar?.dataset.id) {
       delete detalle.btnEliminar.dataset.id;
-    }
-    if (detalle.checklist) {
-      detalle.checklist.innerHTML = "<p class=\"hint\">Selecciona una incidencia para ver el checklist.</p>";
     }
     if (detalle.comunicaciones) {
       detalle.comunicaciones.innerHTML = "";
@@ -229,6 +227,7 @@ export function renderDetalle(incidencia) {
   detalle.btnEditar?.removeAttribute("disabled");
   detalle.btnArchivos?.removeAttribute("disabled");
   detalle.btnEliminar?.removeAttribute("disabled");
+  detalle.btnImprimir?.removeAttribute("disabled");
   if (detalle.btnEditar) {
     detalle.btnEditar.dataset.id = incidencia.id;
   }
@@ -237,13 +236,6 @@ export function renderDetalle(incidencia) {
   }
   if (detalle.btnEliminar) {
     detalle.btnEliminar.dataset.id = incidencia.id;
-  }
-  if (detalle.checklist) {
-    renderChecklist(
-      detalle.checklist,
-      Array.isArray(extras.checklist) ? extras.checklist : [],
-      extras.checklistEstado ?? {}
-    );
   }
   if (detalle.comunicaciones) {
     renderComunicaciones(
@@ -303,11 +295,11 @@ function crearTarjetaLinea(incidencia) {
 
   const estadoLabel = estadoLabels[estado] ?? estado;
   const estadoBadge = crearBadge(estadoLabel, "estado");
-  estadoBadge.classList.add("linea-estado");
+  estadoBadge.classList.add("linea-estado", "linea-estado-text");
 
   const prioridadTexto = formatearPrioridad(incidencia.prioridad);
   const prioridadBadge = crearBadge(prioridadTexto, "prioridad");
-  prioridadBadge.classList.add("linea-prioridad");
+  prioridadBadge.classList.add("linea-prioridad", "linea-prioridad-text");
 
   const fecha = document.createElement("span");
   fecha.className = "linea-fecha";
@@ -320,6 +312,18 @@ function crearTarjetaLinea(incidencia) {
     fecha.textContent = "Sin límite";
     fecha.classList.add("linea-fecha--sin-limite");
   }
+
+  const descripcion = document.createElement("span");
+  descripcion.className = "linea-descripcion linea-print-only";
+  descripcion.textContent = incidencia.descripcion?.trim() || "—";
+
+  const fechaAlta = document.createElement("span");
+  fechaAlta.className = "linea-fecha-alta linea-print-only";
+  fechaAlta.textContent = incidencia.fechaCreacion ? formatDate(incidencia.fechaCreacion) : "—";
+
+  const asignado = document.createElement("span");
+  asignado.className = "linea-asignado linea-print-only";
+  asignado.textContent = obtenerAsignadoLinea(incidencia);
 
   const acciones = crearAccionesTarjeta(incidencia);
   acciones.classList.add("linea-acciones");
@@ -335,9 +339,29 @@ function crearTarjetaLinea(incidencia) {
   } else {
     ariaLabelPartes.push("Sin fecha límite");
   }
+  if (incidencia.fechaCreacion) {
+    ariaLabelPartes.push(`Fecha de alta ${formatDate(incidencia.fechaCreacion)}`);
+  }
+  if (incidencia.descripcion) {
+    ariaLabelPartes.push(`Descripción ${incidencia.descripcion}`);
+  }
+  const asignadoTexto = obtenerAsignadoLinea(incidencia);
+  if (asignadoTexto && asignadoTexto !== "Sin asignar") {
+    ariaLabelPartes.push(`Asignado ${asignadoTexto}`);
+  }
   tarjeta.setAttribute("aria-label", ariaLabelPartes.join(". "));
 
-  tarjeta.append(titulo, edificio, estadoBadge, prioridadBadge, fecha, acciones);
+  tarjeta.append(
+    titulo,
+    edificio,
+    estadoBadge,
+    prioridadBadge,
+    fecha,
+    descripcion,
+    fechaAlta,
+    asignado,
+    acciones
+  );
   return tarjeta;
 }
 
@@ -416,6 +440,21 @@ function formatearPrioridad(prioridad) {
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
+function obtenerAsignadoLinea(incidencia) {
+  if (!incidencia) return "Sin asignar";
+  if (incidencia.esSiniestro) {
+    const partes = [];
+    if (incidencia.polizaNombre || incidencia.polizaId) {
+      partes.push(`Compañía: ${incidencia.polizaNombre || incidencia.polizaId}`);
+    }
+    if (incidencia.referenciaSiniestro) {
+      partes.push(`Nº siniestro: ${incidencia.referenciaSiniestro}`);
+    }
+    return partes.join(" · ") || "Siniestro";
+  }
+  return incidencia.reparadorNombre?.trim() || incidencia.reparadorId?.trim() || "Sin asignar";
+}
+
 function esFechaVencida(fechaLimite) {
   const fecha = new Date(fechaLimite);
   if (Number.isNaN(fecha.getTime())) return false;
@@ -438,30 +477,6 @@ function crearBadge(texto, tipo) {
 function crearIndicadoresTarjeta(incidencia) {
   const contenedor = document.createElement("div");
   contenedor.className = "tarjeta-indicadores";
-  const checklist = Array.isArray(incidencia.checklist) ? incidencia.checklist : [];
-  const checklistEstado = incidencia.checklistEstado ?? {};
-  const totalPasos = checklist.length || Object.keys(checklistEstado).length;
-  const completados = Object.values(checklistEstado).filter(Boolean).length;
-  if (totalPasos > 0) {
-    const porcentaje = Math.round((completados / totalPasos) * 100);
-    const progress = document.createElement("div");
-    progress.className = "tarjeta-progress";
-    const label = document.createElement("span");
-    label.className = "tarjeta-progress-label";
-    label.textContent = `Checklist ${completados}/${totalPasos}`;
-    const barra = document.createElement("div");
-    barra.className = "tarjeta-progress-bar";
-    barra.setAttribute("role", "progressbar");
-    barra.setAttribute("aria-valuemin", "0");
-    barra.setAttribute("aria-valuemax", String(totalPasos));
-    barra.setAttribute("aria-valuenow", String(completados));
-    const relleno = document.createElement("div");
-    relleno.className = "tarjeta-progress-fill";
-    relleno.style.width = `${porcentaje}%`;
-    barra.appendChild(relleno);
-    progress.append(label, barra);
-    contenedor.appendChild(progress);
-  }
   if (incidencia.esSiniestro) {
     contenedor.appendChild(crearBadge("Siniestro", "siniestro"));
   }
@@ -862,38 +877,6 @@ export function renderAgenda(contenedor, incidencias, fechaBase = new Date()) {
   }
   proximos.appendChild(lista);
   contenedor.appendChild(proximos);
-}
-
-/**
- * Renderiza un checklist interactivo.
- * @param {HTMLElement} contenedor
- * @param {Array<{ id: string; label: string }>} items
- * @param {Record<string, boolean>} estado
- */
-export function renderChecklist(contenedor, items, estado) {
-  contenedor.innerHTML = "";
-  if (!items.length) {
-    contenedor.innerHTML = "<p class=\"hint\">No hay pasos definidos para esta incidencia.</p>";
-    return;
-  }
-  const fragment = document.createDocumentFragment();
-  items.forEach((item) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "checklist-item";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.id = `check-${item.id}`;
-    input.name = "checklist";
-    input.value = item.id;
-    input.dataset.stepId = item.id;
-    input.checked = Boolean(estado[item.id]);
-    const label = document.createElement("label");
-    label.setAttribute("for", input.id);
-    label.textContent = item.label;
-    wrapper.append(input, label);
-    fragment.appendChild(wrapper);
-  });
-  contenedor.appendChild(fragment);
 }
 
 /**

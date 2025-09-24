@@ -291,58 +291,6 @@ export function calcularResumenDiario(incidencias) {
 }
 
 /**
- * Devuelve un checklist predefinido según atributos de la incidencia.
- * @param {Record<string, any>} incidencia
- * @returns {Array<{ id: string; label: string }>}
- */
-export function obtenerChecklistBase(incidencia) {
-  const lista = Array.isArray(incidencia?.checklist) ? incidencia.checklist : [];
-  if (lista.length) {
-    return lista.map((item, index) => normalizarChecklistItem(item, index));
-  }
-  const pasosGenerales = [
-    "Validar información recibida",
-    "Asignar responsable",
-    "Registrar actualización para los implicados",
-  ];
-  const pasosAlta = [
-    "Contactar inmediatamente al reparador",
-    "Acordar plan de actuación",
-    "Comunicar avance a la comunidad",
-  ];
-  const pasosSiniestro = [
-    "Notificar a la aseguradora",
-    "Enviar documentación del siniestro",
-    "Programar visita del perito",
-    "Actualizar al asegurado",
-  ];
-  let seleccion = pasosGenerales;
-  if (incidencia?.esSiniestro) {
-    seleccion = pasosSiniestro;
-  } else if (["alta", "critica"].includes(incidencia?.prioridad)) {
-    seleccion = [...pasosAlta, ...pasosGenerales.slice(0, 2)];
-  }
-  return seleccion.map((texto, index) => ({
-    id: slugify(texto) || `paso-${index + 1}`,
-    label: texto,
-  }));
-}
-
-/**
- * Genera el estado booleano de un checklist.
- * @param {Array<{ id: string; label: string }>} items
- * @param {Record<string, boolean>} [estado]
- */
-export function crearChecklistEstado(items, estado = {}) {
-  const resultado = {};
-  items.forEach((item, index) => {
-    const id = item.id || `paso-${index + 1}`;
-    resultado[id] = estado[id] ?? false;
-  });
-  return resultado;
-}
-
-/**
  * Devuelve true si la incidencia coincide con filtros.
  * @param {Record<string, any>} incidencia
  * @param {Record<string, any>} filtros
@@ -414,25 +362,6 @@ function toDateValue(value) {
     }
   }
   return null;
-}
-
-/**
- * Normaliza un elemento de checklist arbitrario.
- * @param {any} item
- * @param {number} index
- */
-function normalizarChecklistItem(item, index) {
-  if (typeof item === "string") {
-    const id = slugify(item) || `paso-${index + 1}`;
-    return { id, label: item };
-  }
-  if (typeof item === "object" && item) {
-    const label = String(item.label ?? item.titulo ?? item.nombre ?? "Paso");
-    const idBase = item.id ? String(item.id) : slugify(label);
-    return { id: idBase || `paso-${index + 1}`, label };
-  }
-  const texto = `Paso ${index + 1}`;
-  return { id: `paso-${index + 1}`, label: texto };
 }
 
 /**

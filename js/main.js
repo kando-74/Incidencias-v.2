@@ -9,7 +9,6 @@ import {
   actualizarArchivosIncidencia,
   eliminarArchivoStorage,
   eliminarIncidencia,
-  actualizarChecklistIncidencia,
   obtenerFiltrosGuardados,
   guardarFiltroGuardado,
   eliminarFiltroGuardado,
@@ -49,8 +48,6 @@ import {
   calcularResumen,
   formatDate,
   calcularResumenDiario,
-  obtenerChecklistBase,
-  crearChecklistEstado,
 } from "./utils.js";
 
 const state = {
@@ -67,8 +64,6 @@ const state = {
   filtrosGuardados: [],
   filtroActivoId: null,
   detalle: {
-    checklist: [],
-    checklistEstado: {},
     comunicaciones: [],
   },
   detalleActualId: null,
@@ -82,6 +77,19 @@ let unsubscribeIncidencias = null;
 const refs = {};
 
 const recordatoriosMostrados = new Set();
+
+const PRIORIDAD_LABELS = {
+  baja: "Baja",
+  media: "Media",
+  alta: "Alta",
+  critica: "Crítica",
+};
+
+const ESTADO_LABELS = {
+  abierta: "Abierta",
+  en_proceso: "En proceso",
+  cerrada: "Cerrada",
+};
 
 /**
  * Inicializa la aplicación al cargar el documento.
@@ -125,8 +133,10 @@ function cacheDom() {
   refs.agenda = document.getElementById("agenda-calendario");
   refs.formComunicacion = document.getElementById("form-comunicacion");
   refs.comunicacionError = document.getElementById("comunicacion-error");
-  refs.checklistContainer = document.getElementById("checklist-contenido");
   refs.comunicacionesLista = document.getElementById("comunicaciones-lista");
+  refs.btnImprimirDetalle = document.getElementById("btn-imprimir-detalle");
+  refs.printResumen = document.getElementById("print-resumen");
+  refs.printDetalle = document.getElementById("print-detalle");
   refs.formEdificio = document.getElementById("form-edificio");
   refs.listaEdificios = document.getElementById("lista-edificios");
   refs.errorEdificio = document.getElementById("edificio-error");
@@ -312,6 +322,16 @@ function setupEventListeners() {
   });
 
   refs.btnImprimir?.addEventListener("click", () => {
+    document.body.dataset.printMode = "listado";
+    window.print();
+  });
+
+  refs.btnImprimirDetalle?.addEventListener("click", async () => {
+    if (!state.seleccion) return;
+    document.body.dataset.printMode = "detalle";
+    await prepararDetalleExtra(state.seleccion, { force: true });
+    const incidencia = enriquecerIncidencia(state.seleccion);
+    renderDetalleImpresion(incidencia, state.detalle.comunicaciones);
     window.print();
   });
 
@@ -445,29 +465,6 @@ function setupEventListeners() {
     }
   });
 
-  refs.checklistContainer?.addEventListener("change", async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") return;
-    if (!state.seleccion) return;
-    const stepId = target.dataset.stepId ?? target.value;
-    if (!stepId) return;
-    const nuevoEstado = { ...state.detalle.checklistEstado, [stepId]: target.checked };
-    state.detalle.checklistEstado = nuevoEstado;
-    state.seleccion = { ...state.seleccion, checklistEstado: nuevoEstado };
-    state.incidencias = state.incidencias.map((item) =>
-      item.id === state.seleccion?.id ? { ...item, checklistEstado: nuevoEstado } : item
-    );
-    try {
-      await actualizarChecklistIncidencia(state.seleccion.id, nuevoEstado);
-      showToast("Checklist actualizado", "success");
-    } catch (error) {
-      console.error(error);
-      target.checked = !target.checked;
-      state.detalle.checklistEstado = { ...state.detalle.checklistEstado, [stepId]: target.checked };
-      showToast("No se pudo actualizar el checklist", "error");
-    }
-  });
-
   refs.formComunicacion?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!refs.formComunicacion || !state.seleccion || !state.user) return;
@@ -572,7 +569,7 @@ function setupEventListeners() {
       showToast("Incidencia eliminada", "success");
       state.incidencias = state.incidencias.filter((item) => item.id !== id);
       state.seleccion = null;
-      state.detalle = { checklist: [], checklistEstado: {}, comunicaciones: [] };
+      state.detalle = { comunicaciones: [] };
       state.detalleActualId = null;
       renderDetalle(null, state.detalle);
       refrescarUI();
@@ -583,6 +580,13 @@ function setupEventListeners() {
   });
 
   setupDragAndDrop();
+
+  window.addEventListener("afterprint", () => {
+    delete document.body.dataset.printMode;
+    if (refs.printDetalle) {
+      refs.printDetalle.innerHTML = "";
+    }
+  });
 }
 
 function handleAuthState(user) {
@@ -618,7 +622,7 @@ function ocultarApp() {
   state.filtros = {};
   state.filtrosGuardados = [];
   state.filtroActivoId = null;
-  state.detalle = { checklist: [], checklistEstado: {}, comunicaciones: [] };
+  state.detalle = { comunicaciones: [] };
   state.detalleActualId = null;
   state.catalogos = { edificios: [], reparadores: [], polizas: [] };
   state.edificioEditandoId = null;
@@ -671,28 +675,16 @@ function refrescarUI() {
   if (!refs.listaIncidencias || !refs.listaWrapper || !refs.kanbanBoard) return;
   const filtradas = obtenerIncidenciasFiltradas();
   if (state.seleccion && !filtradas.some((item) => item.id === state.seleccion.id)) {
-    state.seleccion = filtradas[0] ?? null;
-  }
-  if (!state.seleccion && filtradas.length) {
-    state.seleccion = filtradas[0];
+    state.seleccion = null;
   }
 
   if (!state.seleccion) {
-    state.detalle = { checklist: [], checklistEstado: {}, comunicaciones: [] };
+    state.detalle = { comunicaciones: [] };
     state.detalleActualId = null;
-  } else {
-    const checklist = obtenerChecklistBase(state.seleccion);
-    const estadoChecklist = crearChecklistEstado(checklist, {
-      ...state.detalle.checklistEstado,
-      ...(state.seleccion.checklistEstado ?? {}),
-    });
-    state.detalle.checklist = checklist;
-    state.detalle.checklistEstado = estadoChecklist;
-    if (state.detalleActualId !== state.seleccion.id) {
-      state.detalle.comunicaciones = [];
-      state.detalleActualId = state.seleccion.id;
-      prepararDetalleExtra(state.seleccion);
-    }
+  } else if (state.detalleActualId !== state.seleccion.id) {
+    state.detalle.comunicaciones = [];
+    state.detalleActualId = state.seleccion.id;
+    prepararDetalleExtra(state.seleccion);
   }
 
   const seleccionId = state.seleccion?.id;
@@ -712,6 +704,8 @@ function refrescarUI() {
 
   const todasEnriquecidas = enriquecerIncidencias(state.incidencias);
   renderAgenda(refs.agenda, todasEnriquecidas);
+
+  actualizarResumenFiltrosImpresion(state.filtros);
 
   toggleVista(refs.listaWrapper, refs.kanbanBoard, state.vista);
   if (refs.btnToggleVista) {
@@ -2057,6 +2051,225 @@ async function prepararDetalleExtra(incidencia, options = {}) {
   } catch (error) {
     console.error("No se pudieron cargar las comunicaciones", error);
   }
+}
+
+function actualizarResumenFiltrosImpresion(filtros = {}) {
+  if (!refs.printResumen) return;
+  const container = refs.printResumen;
+  container.innerHTML = "";
+
+  const titulo = document.createElement("p");
+  titulo.className = "print-resumen__titulo";
+  titulo.textContent = "Incidencias";
+  container.appendChild(titulo);
+
+  const elementos = [];
+  if (filtros.edificioId) {
+    const edificio = state.catalogos.edificios.find((item) => item.id === filtros.edificioId);
+    const nombreEdificio = obtenerNombreEdificio(edificio) || filtros.edificioId;
+    elementos.push(`Edificio = ${nombreEdificio}`);
+  }
+  if (filtros.reparadorId) {
+    const reparador = state.catalogos.reparadores.find((item) => item.id === filtros.reparadorId);
+    const nombreReparador = obtenerNombreReparador(reparador) || filtros.reparadorId;
+    elementos.push(`Reparador = ${nombreReparador}`);
+  }
+  if (filtros.prioridad) {
+    const prioridadLabel = PRIORIDAD_LABELS[filtros.prioridad] ?? filtros.prioridad;
+    elementos.push(`Prioridad = ${prioridadLabel}`);
+  }
+  if (filtros.estado) {
+    const estadoLabel = ESTADO_LABELS[filtros.estado] ?? filtros.estado;
+    elementos.push(`Estado = ${estadoLabel}`);
+  }
+  if (filtros.busqueda) {
+    elementos.push(`Búsqueda = ${filtros.busqueda}`);
+  }
+  const etiquetas = Array.isArray(filtros.etiquetas)
+    ? filtros.etiquetas
+    : typeof filtros.etiquetas === "string"
+    ? filtros.etiquetas
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+    : [];
+  if (etiquetas.length) {
+    elementos.push(`Etiquetas = ${etiquetas.join(", ")}`);
+  }
+  if (filtros.soloSiniestros) {
+    elementos.push("Solo siniestros");
+  }
+
+  const fechaDesde = filtros.desde ? formatDate(filtros.desde) : "";
+  const fechaHasta = filtros.hasta ? formatDate(filtros.hasta) : "";
+
+  if (elementos.length) {
+    const lista = document.createElement("ul");
+    lista.className = "print-resumen__lista";
+    elementos.forEach((texto) => {
+      const li = document.createElement("li");
+      li.textContent = texto;
+      lista.appendChild(li);
+    });
+    container.appendChild(lista);
+  }
+
+  if (fechaDesde || fechaHasta) {
+    const rango = document.createElement("p");
+    rango.className = "print-resumen__rango";
+    if (fechaDesde && fechaHasta) {
+      rango.textContent = `Desde ${fechaDesde} a ${fechaHasta}`;
+    } else if (fechaDesde) {
+      rango.textContent = `Desde ${fechaDesde}`;
+    } else {
+      rango.textContent = `Hasta ${fechaHasta}`;
+    }
+    container.appendChild(rango);
+  }
+
+  if (!elementos.length && !(fechaDesde || fechaHasta)) {
+    const sinFiltros = document.createElement("p");
+    sinFiltros.className = "print-resumen__texto";
+    sinFiltros.textContent = "Sin filtros aplicados.";
+    container.appendChild(sinFiltros);
+  }
+}
+
+function renderDetalleImpresion(incidencia, comunicaciones = []) {
+  if (!refs.printDetalle) return;
+  refs.printDetalle.innerHTML = "";
+  if (!incidencia) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "print-detalle__wrapper";
+
+  const titulo = document.createElement("h2");
+  titulo.className = "print-detalle__titulo";
+  titulo.textContent = incidencia.titulo?.trim() || "(Sin título)";
+  wrapper.appendChild(titulo);
+
+  const metaPartes = [];
+  if (incidencia.id) {
+    metaPartes.push(`ID: ${incidencia.id}`);
+  }
+  const fechaAlta = incidencia.fechaCreacion ? formatDate(incidencia.fechaCreacion) : "";
+  if (fechaAlta) {
+    metaPartes.push(`Creada: ${fechaAlta}`);
+  }
+  if (metaPartes.length) {
+    const meta = document.createElement("p");
+    meta.className = "print-detalle__meta";
+    meta.textContent = metaPartes.join(" · ");
+    wrapper.appendChild(meta);
+  }
+
+  const descripcionTexto = incidencia.descripcion?.trim();
+  const descripcionSeccion = document.createElement("section");
+  descripcionSeccion.className = "print-detalle__descripcion";
+  const descripcionTitulo = document.createElement("h3");
+  descripcionTitulo.textContent = "Descripción";
+  const descripcionParrafo = document.createElement("p");
+  descripcionParrafo.textContent = descripcionTexto || "Sin descripción.";
+  descripcionSeccion.append(descripcionTitulo, descripcionParrafo);
+  wrapper.appendChild(descripcionSeccion);
+
+  const datos = document.createElement("dl");
+  datos.className = "print-detalle__datos";
+
+  const appendDato = (etiqueta, valor) => {
+    const dt = document.createElement("dt");
+    dt.textContent = etiqueta;
+    const dd = document.createElement("dd");
+    dd.textContent = valor || "—";
+    datos.append(dt, dd);
+  };
+
+  appendDato("Edificio", incidencia.edificioNombre || incidencia.edificioId || "—");
+  appendDato("Asignado / Seguro", obtenerTextoAsignacion(incidencia));
+  const estadoLabel = ESTADO_LABELS[incidencia.estado] ?? incidencia.estado ?? "—";
+  appendDato("Estado", estadoLabel);
+  const prioridadLabel = PRIORIDAD_LABELS[incidencia.prioridad] ?? incidencia.prioridad ?? "—";
+  appendDato("Prioridad", prioridadLabel);
+  appendDato("Fecha de alta", fechaAlta || "—");
+  const fechaLimite = incidencia.fechaLimite ? formatDate(incidencia.fechaLimite) : "";
+  appendDato("Fecha límite", fechaLimite || "—");
+  const fechaCierre = incidencia.fechaCierre ? formatDate(incidencia.fechaCierre) : "";
+  if (fechaCierre) {
+    appendDato("Fecha de cierre", fechaCierre);
+  }
+  appendDato("Siniestro", incidencia.esSiniestro ? "Sí" : "No");
+  if (incidencia.esSiniestro) {
+    appendDato("Compañía", incidencia.polizaNombre || incidencia.polizaId || "—");
+    if (incidencia.referenciaSiniestro) {
+      appendDato("Nº siniestro", incidencia.referenciaSiniestro);
+    }
+  } else if (incidencia.reparadorNombre) {
+    appendDato("Reparador", incidencia.reparadorNombre);
+  }
+  const etiquetasIncidencia = Array.isArray(incidencia.etiquetas) ? incidencia.etiquetas : [];
+  if (etiquetasIncidencia.length) {
+    appendDato("Etiquetas", etiquetasIncidencia.join(", "));
+  }
+  const archivos = Array.isArray(incidencia.archivos) ? incidencia.archivos : [];
+  if (archivos.length) {
+    const nombres = archivos.map((archivo) => archivo.nombre ?? archivo.path ?? "Archivo");
+    appendDato("Archivos", nombres.join(", "));
+  } else {
+    appendDato("Archivos", "—");
+  }
+
+  wrapper.appendChild(datos);
+
+  const historial = document.createElement("section");
+  historial.className = "print-detalle__historial";
+  const historialTitulo = document.createElement("h3");
+  historialTitulo.textContent = "Historial de anotaciones";
+  historial.appendChild(historialTitulo);
+  const lista = document.createElement("ul");
+  lista.className = "print-detalle__historial-lista";
+  if (!comunicaciones.length) {
+    const vacio = document.createElement("li");
+    vacio.className = "print-detalle__historial-item--vacio";
+    vacio.textContent = "Sin registros de comunicación.";
+    lista.appendChild(vacio);
+  } else {
+    comunicaciones.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "print-detalle__historial-item";
+      const tipo = document.createElement("span");
+      tipo.className = "print-detalle__historial-tipo";
+      tipo.textContent = (item.tipo ?? "nota").toUpperCase();
+      const mensaje = document.createElement("p");
+      mensaje.className = "print-detalle__historial-mensaje";
+      mensaje.textContent = item.mensaje ?? "";
+      const meta = document.createElement("span");
+      meta.className = "print-detalle__historial-meta";
+      const autor = item.autor ?? "Equipo";
+      const fecha = item.fecha ? formatDate(item.fecha) : "";
+      meta.textContent = fecha ? `${autor} · ${fecha}` : autor;
+      li.append(tipo, mensaje, meta);
+      lista.appendChild(li);
+    });
+  }
+  historial.appendChild(lista);
+  wrapper.appendChild(historial);
+
+  refs.printDetalle.appendChild(wrapper);
+}
+
+function obtenerTextoAsignacion(incidencia) {
+  if (!incidencia) return "—";
+  if (incidencia.esSiniestro) {
+    const partes = [];
+    if (incidencia.polizaNombre || incidencia.polizaId) {
+      partes.push(`Compañía: ${incidencia.polizaNombre || incidencia.polizaId}`);
+    }
+    if (incidencia.referenciaSiniestro) {
+      partes.push(`Nº siniestro: ${incidencia.referenciaSiniestro}`);
+    }
+    return partes.join(" · ") || "Siniestro";
+  }
+  return incidencia.reparadorNombre?.trim() || "Sin asignar";
 }
 
 function gestionarRecordatorios(incidencias) {

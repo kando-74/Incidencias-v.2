@@ -2,6 +2,7 @@ import { formatDate, stringifyTags, groupBy, sortIncidencias } from "./utils.js"
 
 const modalBackdrop = document.getElementById("modal-backdrop");
 const modalRoot = document.getElementById("modal-root");
+const dayNames = ["L", "M", "X", "J", "V", "S", "D"];
 
 /**
  * Gestiona los modales declarados con data-modal-target.
@@ -125,6 +126,7 @@ export function renderKanban(columnas, incidencias, seleccionId) {
  * @param {any | null} incidencia
  */
 export function renderDetalle(incidencia) {
+  const extras = arguments.length > 1 ? arguments[1] : {};
   const detalle = {
     titulo: document.getElementById("detalle-titulo"),
     descripcion: document.getElementById("detalle-descripcion"),
@@ -139,6 +141,10 @@ export function renderDetalle(incidencia) {
     btnEditar: document.getElementById("btn-editar-incidencia"),
     btnArchivos: document.getElementById("btn-abrir-archivos"),
     btnEliminar: document.getElementById("btn-eliminar-incidencia"),
+    checklist: document.getElementById("checklist-contenido"),
+    comunicaciones: document.getElementById("comunicaciones-lista"),
+    formComunicacion: document.getElementById("form-comunicacion"),
+    errorComunicacion: document.getElementById("comunicacion-error"),
   };
   if (!incidencia) {
     detalle.titulo.textContent = "Selecciona una incidencia";
@@ -163,6 +169,20 @@ export function renderDetalle(incidencia) {
     if (detalle.btnEliminar?.dataset.id) {
       delete detalle.btnEliminar.dataset.id;
     }
+    if (detalle.checklist) {
+      detalle.checklist.innerHTML = "<p class=\"hint\">Selecciona una incidencia para ver el checklist.</p>";
+    }
+    if (detalle.comunicaciones) {
+      detalle.comunicaciones.innerHTML = "";
+      const vacio = document.createElement("li");
+      vacio.className = "hint";
+      vacio.textContent = "No hay comunicaciones registradas.";
+      detalle.comunicaciones.appendChild(vacio);
+    }
+    if (detalle.errorComunicacion) {
+      detalle.errorComunicacion.textContent = "";
+    }
+    toggleFormularioComunicacion(detalle.formComunicacion, false);
     return;
   }
   detalle.titulo.textContent = incidencia.titulo ?? "(Sin título)";
@@ -191,6 +211,23 @@ export function renderDetalle(incidencia) {
   if (detalle.btnEliminar) {
     detalle.btnEliminar.dataset.id = incidencia.id;
   }
+  if (detalle.checklist) {
+    renderChecklist(
+      detalle.checklist,
+      Array.isArray(extras.checklist) ? extras.checklist : [],
+      extras.checklistEstado ?? {}
+    );
+  }
+  if (detalle.comunicaciones) {
+    renderComunicaciones(
+      detalle.comunicaciones,
+      Array.isArray(extras.comunicaciones) ? extras.comunicaciones : []
+    );
+  }
+  if (detalle.errorComunicacion) {
+    detalle.errorComunicacion.textContent = "";
+  }
+  toggleFormularioComunicacion(detalle.formComunicacion, true);
 }
 
 /**
@@ -342,4 +379,241 @@ export function showToast(mensaje, tipo = "success") {
   setTimeout(() => {
     toast?.classList.remove("visible");
   }, 3000);
+}
+
+/**
+ * Actualiza los indicadores del panel diario.
+ * @param {{ abiertas: number; proximas: number; sinAsignar: number; nuevas: number }} metrics
+ */
+export function actualizarResumenDiario(metrics) {
+  const refs = {
+    abiertas: document.getElementById("metric-abiertas"),
+    proximas: document.getElementById("metric-proximas"),
+    sinAsignar: document.getElementById("metric-sin-asignar"),
+    nuevas: document.getElementById("metric-nuevas"),
+  };
+  if (refs.abiertas) refs.abiertas.textContent = String(metrics.abiertas ?? 0);
+  if (refs.proximas) refs.proximas.textContent = String(metrics.proximas ?? 0);
+  if (refs.sinAsignar) refs.sinAsignar.textContent = String(metrics.sinAsignar ?? 0);
+  if (refs.nuevas) refs.nuevas.textContent = String(metrics.nuevas ?? 0);
+}
+
+/**
+ * Pinta la lista de filtros rápidos disponibles.
+ * @param {HTMLElement | null} contenedor
+ * @param {Array<{ id: string; nombre: string }>} filtros
+ * @param {string | null} activoId
+ */
+export function renderFiltrosRapidos(contenedor, filtros, activoId) {
+  if (!contenedor) return;
+  contenedor.innerHTML = "";
+  if (!filtros.length) {
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  filtros.forEach((filtro) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "chip";
+    if (filtro.id === activoId) {
+      wrapper.classList.add("is-active");
+    }
+    wrapper.dataset.id = filtro.id;
+    const aplicar = document.createElement("button");
+    aplicar.type = "button";
+    aplicar.className = "chip-apply";
+    aplicar.dataset.action = "apply";
+    aplicar.textContent = filtro.nombre;
+    aplicar.setAttribute("aria-label", `Aplicar filtro ${filtro.nombre}`);
+    const eliminar = document.createElement("button");
+    eliminar.type = "button";
+    eliminar.className = "chip-delete";
+    eliminar.dataset.action = "delete";
+    eliminar.setAttribute("aria-label", `Eliminar filtro ${filtro.nombre}`);
+    eliminar.textContent = "×";
+    wrapper.append(aplicar, eliminar);
+    fragment.appendChild(wrapper);
+  });
+  contenedor.appendChild(fragment);
+}
+
+/**
+ * Renderiza el calendario y los próximos vencimientos.
+ * @param {HTMLElement | null} contenedor
+ * @param {Array<Record<string, any>>} incidencias
+ * @param {Date} [fechaBase]
+ */
+export function renderAgenda(contenedor, incidencias, fechaBase = new Date()) {
+  if (!contenedor) return;
+  contenedor.innerHTML = "";
+  const base = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), 1);
+  const diasMes = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+  const primerDia = new Date(base);
+  const inicioSemana = (primerDia.getDay() + 6) % 7; // lunes = 0
+  const calendario = document.createElement("div");
+  calendario.className = "calendar-grid";
+  dayNames.forEach((nombre) => {
+    const etiqueta = document.createElement("div");
+    etiqueta.className = "calendar-day-name";
+    etiqueta.textContent = nombre;
+    calendario.appendChild(etiqueta);
+  });
+  for (let i = 0; i < inicioSemana; i += 1) {
+    const vacio = document.createElement("div");
+    vacio.className = "calendar-day is-empty";
+    calendario.appendChild(vacio);
+  }
+  const incidenciasPorDia = agruparIncidenciasPorFecha(incidencias);
+  for (let dia = 1; dia <= diasMes; dia += 1) {
+    const fecha = new Date(base.getFullYear(), base.getMonth(), dia);
+    const clave = formatoClave(fecha);
+    const eventos = incidenciasPorDia.get(clave) ?? [];
+    const celda = document.createElement("div");
+    celda.className = "calendar-day";
+    if (eventos.length) {
+      celda.classList.add("has-events");
+      celda.setAttribute("aria-label", `${eventos.length} incidencias con vencimiento el ${fecha.toLocaleDateString()}`);
+    }
+    const numero = document.createElement("span");
+    numero.className = "calendar-date";
+    numero.textContent = String(dia);
+    celda.appendChild(numero);
+    if (eventos.length) {
+      const contador = document.createElement("span");
+      contador.className = "event-count";
+      contador.textContent = String(eventos.length);
+      celda.appendChild(contador);
+    }
+    calendario.appendChild(celda);
+  }
+  contenedor.appendChild(calendario);
+
+  const proximos = document.createElement("div");
+  proximos.className = "agenda-proximos";
+  const titulo = document.createElement("h4");
+  titulo.textContent = "Próximos 7 días";
+  proximos.appendChild(titulo);
+  const lista = document.createElement("ul");
+  const ahora = new Date();
+  const limite = new Date(ahora.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const proximasIncidencias = incidencias
+    .filter((incidencia) => {
+      if (!incidencia.fechaLimite || incidencia.estado === "cerrada") return false;
+      const fecha = new Date(incidencia.fechaLimite);
+      if (Number.isNaN(fecha.getTime())) return false;
+      return fecha >= ahora && fecha <= limite;
+    })
+    .sort((a, b) => new Date(a.fechaLimite).getTime() - new Date(b.fechaLimite).getTime())
+    .slice(0, 5);
+  if (!proximasIncidencias.length) {
+    const item = document.createElement("li");
+    item.className = "hint";
+    item.textContent = "Sin vencimientos en la próxima semana.";
+    lista.appendChild(item);
+  } else {
+    proximasIncidencias.forEach((incidencia) => {
+      const item = document.createElement("li");
+      const fecha = formatDate(incidencia.fechaLimite) || "Sin fecha";
+      item.textContent = `${fecha} · ${incidencia.titulo ?? "(Sin título)"}`;
+      lista.appendChild(item);
+    });
+  }
+  proximos.appendChild(lista);
+  contenedor.appendChild(proximos);
+}
+
+/**
+ * Renderiza un checklist interactivo.
+ * @param {HTMLElement} contenedor
+ * @param {Array<{ id: string; label: string }>} items
+ * @param {Record<string, boolean>} estado
+ */
+export function renderChecklist(contenedor, items, estado) {
+  contenedor.innerHTML = "";
+  if (!items.length) {
+    contenedor.innerHTML = "<p class=\"hint\">No hay pasos definidos para esta incidencia.</p>";
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  items.forEach((item) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "checklist-item";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.id = `check-${item.id}`;
+    input.name = "checklist";
+    input.value = item.id;
+    input.dataset.stepId = item.id;
+    input.checked = Boolean(estado[item.id]);
+    const label = document.createElement("label");
+    label.setAttribute("for", input.id);
+    label.textContent = item.label;
+    wrapper.append(input, label);
+    fragment.appendChild(wrapper);
+  });
+  contenedor.appendChild(fragment);
+}
+
+/**
+ * Pinta el historial de comunicaciones.
+ * @param {HTMLElement} contenedor
+ * @param {Array<{ id: string; tipo?: string; mensaje: string; autor?: string; fecha?: string | Date }>} comunicaciones
+ */
+export function renderComunicaciones(contenedor, comunicaciones) {
+  contenedor.innerHTML = "";
+  if (!comunicaciones.length) {
+    const vacio = document.createElement("li");
+    vacio.className = "hint";
+    vacio.textContent = "Sin registros de comunicación.";
+    contenedor.appendChild(vacio);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  comunicaciones.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = "comunicacion-item";
+    const tipo = document.createElement("span");
+    tipo.className = "comunicacion-tipo";
+    tipo.textContent = (item.tipo ?? "nota").toUpperCase();
+    const mensaje = document.createElement("p");
+    mensaje.className = "comunicacion-mensaje";
+    mensaje.textContent = item.mensaje ?? "";
+    const meta = document.createElement("span");
+    meta.className = "comunicacion-meta";
+    const autor = item.autor ?? "Equipo";
+    const fecha = item.fecha ? formatDate(item.fecha) : "";
+    meta.textContent = fecha ? `${autor} · ${fecha}` : autor;
+    li.append(tipo, mensaje, meta);
+    fragment.appendChild(li);
+  });
+  contenedor.appendChild(fragment);
+}
+
+function toggleFormularioComunicacion(form, habilitar) {
+  if (!(form instanceof HTMLFormElement)) return;
+  const controles = form.querySelectorAll("input, select, textarea, button");
+  controles.forEach((control) => {
+    control.disabled = !habilitar;
+  });
+}
+
+function agruparIncidenciasPorFecha(incidencias) {
+  const mapa = new Map();
+  incidencias.forEach((incidencia) => {
+    if (!incidencia.fechaLimite || incidencia.estado === "cerrada") return;
+    const fecha = new Date(incidencia.fechaLimite);
+    if (Number.isNaN(fecha.getTime())) return;
+    const clave = formatoClave(fecha);
+    if (!mapa.has(clave)) {
+      mapa.set(clave, []);
+    }
+    mapa.get(clave).push(incidencia);
+  });
+  return mapa;
+}
+
+function formatoClave(fecha) {
+  const year = fecha.getFullYear();
+  const month = String(fecha.getMonth() + 1).padStart(2, "0");
+  const day = String(fecha.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

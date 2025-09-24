@@ -9,6 +9,12 @@ import {
   actualizarArchivosIncidencia,
   eliminarArchivoStorage,
   eliminarIncidencia,
+  actualizarChecklistIncidencia,
+  obtenerFiltrosGuardados,
+  guardarFiltroGuardado,
+  eliminarFiltroGuardado,
+  obtenerComunicaciones,
+  agregarComunicacion,
 } from "./services.js";
 import {
   setupModales,
@@ -22,6 +28,9 @@ import {
   actualizarResumen,
   showToast,
   openModal,
+  actualizarResumenDiario,
+  renderAgenda,
+  renderFiltrosRapidos,
 } from "./ui.js";
 import {
   parseTags,
@@ -30,6 +39,9 @@ import {
   filtrarIncidencia,
   calcularResumen,
   formatDate,
+  calcularResumenDiario,
+  obtenerChecklistBase,
+  crearChecklistEstado,
 } from "./utils.js";
 
 const state = {
@@ -43,11 +55,21 @@ const state = {
     reparadores: [],
     polizas: [],
   },
+  filtrosGuardados: [],
+  filtroActivoId: null,
+  detalle: {
+    checklist: [],
+    checklistEstado: {},
+    comunicaciones: [],
+  },
+  detalleActualId: null,
 };
 
 let unsubscribeIncidencias = null;
 
 const refs = {};
+
+const recordatoriosMostrados = new Set();
 
 /**
  * Inicializa la aplicación al cargar el documento.
@@ -56,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
   cacheDom();
   setupModales();
   setupEventListeners();
-  renderDetalle(null);
+  renderDetalle(null, state.detalle);
   initAuth(handleAuthState);
 });
 
@@ -82,6 +104,14 @@ function cacheDom() {
   refs.btnAbrirArchivos = document.getElementById("btn-abrir-archivos");
   refs.btnEditarIncidencia = document.getElementById("btn-editar-incidencia");
   refs.btnLimpiarFiltros = document.getElementById("btn-limpiar-filtros");
+  refs.btnGuardarFiltro = document.getElementById("btn-guardar-filtro");
+  refs.filtroNombre = document.getElementById("filtro-nombre-rapido");
+  refs.filtrosRapidos = document.getElementById("filtros-rapidos");
+  refs.agenda = document.getElementById("agenda-calendario");
+  refs.formComunicacion = document.getElementById("form-comunicacion");
+  refs.comunicacionError = document.getElementById("comunicacion-error");
+  refs.checklistContainer = document.getElementById("checklist-contenido");
+  refs.comunicacionesLista = document.getElementById("comunicaciones-lista");
   refs.columnasKanban = {
     abierta: document.getElementById("kanban-abierta"),
     en_proceso: document.getElementById("kanban-en-proceso"),
@@ -166,6 +196,7 @@ function setupEventListeners() {
     if (event.key === "Enter") {
       event.preventDefault();
       state.filtros.busqueda = refs.busquedaInput.value.trim();
+      state.filtroActivoId = null;
       refrescarUI();
     }
   });
@@ -240,26 +271,126 @@ function setupEventListeners() {
     event.preventDefault();
     if (!refs.formFiltros) return;
     const data = new FormData(refs.formFiltros);
-    state.filtros = {
-      ...state.filtros,
-      edificioId: data.get("edificioId") ? String(data.get("edificioId")) : "",
-      prioridad: data.get("prioridad") ? String(data.get("prioridad")) : "",
-      estado: data.get("estado") ? String(data.get("estado")) : "",
-      reparadorId: data.get("reparadorId") ? String(data.get("reparadorId")) : "",
-      desde: data.get("desde") ? String(data.get("desde")) : "",
-      hasta: data.get("hasta") ? String(data.get("hasta")) : "",
-      etiquetas: parseTags(String(data.get("etiquetas") ?? "")),
-      soloSiniestros: data.get("soloSiniestros") === "on",
-    };
+    const filtrosFormulario = construirFiltrosDesdeFormulario(data);
+    const busquedaActual = refs.busquedaInput?.value.trim() ?? state.filtros.busqueda ?? "";
+    state.filtros = { ...filtrosFormulario, busqueda: busquedaActual };
+    state.filtroActivoId = null;
     closeModal(refs.modalFiltros);
     refrescarUI();
   });
 
   refs.btnLimpiarFiltros?.addEventListener("click", () => {
     state.filtros = {};
+    state.filtroActivoId = null;
     if (refs.busquedaInput) refs.busquedaInput.value = "";
     refs.formFiltros?.reset();
     refrescarUI();
+  });
+
+  refs.btnGuardarFiltro?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    if (!refs.formFiltros || !state.user) return;
+    const nombre = refs.filtroNombre?.value.trim() ?? "";
+    if (!nombre) {
+      showToast("Indica un nombre para el filtro", "error");
+      return;
+    }
+    const data = new FormData(refs.formFiltros);
+    const criterios = {
+      ...construirFiltrosDesdeFormulario(data),
+      busqueda: refs.busquedaInput?.value.trim() ?? state.filtros.busqueda ?? "",
+    };
+    try {
+      await guardarFiltroGuardado(state.user.uid, { nombre, criterios });
+      showToast("Filtro guardado", "success");
+      if (refs.filtroNombre) refs.filtroNombre.value = "";
+      await cargarFiltrosGuardados();
+    } catch (error) {
+      console.error(error);
+      showToast("No se pudo guardar el filtro", "error");
+    }
+  });
+
+  refs.filtrosRapidos?.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const chip = target.closest(".chip");
+    if (!chip) return;
+    const filtroId = chip.dataset.id ?? "";
+    if (!filtroId) return;
+    const action = target.dataset.action;
+    if (action === "delete") {
+      if (!state.user) return;
+      const confirmar = window.confirm("¿Eliminar este filtro rápido?");
+      if (!confirmar) return;
+      try {
+        await eliminarFiltroGuardado(state.user.uid, filtroId);
+        if (state.filtroActivoId === filtroId) {
+          state.filtroActivoId = null;
+        }
+        await cargarFiltrosGuardados();
+        showToast("Filtro eliminado", "success");
+      } catch (error) {
+        console.error(error);
+        showToast("No se pudo eliminar el filtro", "error");
+      }
+      return;
+    }
+    if (action === "apply") {
+      const filtro = state.filtrosGuardados.find((item) => item.id === filtroId);
+      if (!filtro) return;
+      aplicarFiltroGuardado(filtro);
+    }
+  });
+
+  refs.checklistContainer?.addEventListener("change", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") return;
+    if (!state.seleccion) return;
+    const stepId = target.dataset.stepId ?? target.value;
+    if (!stepId) return;
+    const nuevoEstado = { ...state.detalle.checklistEstado, [stepId]: target.checked };
+    state.detalle.checklistEstado = nuevoEstado;
+    state.seleccion = { ...state.seleccion, checklistEstado: nuevoEstado };
+    state.incidencias = state.incidencias.map((item) =>
+      item.id === state.seleccion?.id ? { ...item, checklistEstado: nuevoEstado } : item
+    );
+    try {
+      await actualizarChecklistIncidencia(state.seleccion.id, nuevoEstado);
+      showToast("Checklist actualizado", "success");
+    } catch (error) {
+      console.error(error);
+      target.checked = !target.checked;
+      state.detalle.checklistEstado = { ...state.detalle.checklistEstado, [stepId]: target.checked };
+      showToast("No se pudo actualizar el checklist", "error");
+    }
+  });
+
+  refs.formComunicacion?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!refs.formComunicacion || !state.seleccion || !state.user) return;
+    const data = new FormData(refs.formComunicacion);
+    const mensaje = String(data.get("mensaje") ?? "").trim();
+    const tipo = String(data.get("tipo") ?? "nota");
+    if (!mensaje) {
+      if (refs.comunicacionError) {
+        refs.comunicacionError.textContent = "El detalle es obligatorio";
+      }
+      return;
+    }
+    if (refs.comunicacionError) refs.comunicacionError.textContent = "";
+    try {
+      const autor = state.user.displayName ?? state.user.email ?? "Equipo";
+      await agregarComunicacion(state.seleccion.id, { tipo, mensaje, autor });
+      refs.formComunicacion.reset();
+      await prepararDetalleExtra(state.seleccion, { force: true });
+      showToast("Comunicación registrada", "success");
+    } catch (error) {
+      console.error(error);
+      if (refs.comunicacionError) {
+        refs.comunicacionError.textContent = traducirError(error);
+      }
+    }
   });
 
   refs.btnAbrirArchivos?.addEventListener("click", async () => {
@@ -272,7 +403,7 @@ function setupEventListeners() {
         item.id === actualizada.id ? { ...item, archivos } : item
       );
       renderArchivos(archivos);
-      renderDetalle(enriquecerIncidencia(actualizada));
+      renderDetalle(enriquecerIncidencia(actualizada), state.detalle);
       if (refs.modalArchivos instanceof HTMLDialogElement) {
         openModal(refs.modalArchivos);
       }
@@ -299,7 +430,7 @@ function setupEventListeners() {
         item.id === id ? { ...item, archivos: restantes } : item
       );
       renderArchivos(restantes);
-      renderDetalle(enriquecerIncidencia(state.seleccion));
+      renderDetalle(enriquecerIncidencia(state.seleccion), state.detalle);
       showToast("Archivo eliminado", "success");
     } catch (error) {
       console.error(error);
@@ -326,7 +457,9 @@ function setupEventListeners() {
       showToast("Incidencia eliminada", "success");
       state.incidencias = state.incidencias.filter((item) => item.id !== id);
       state.seleccion = null;
-      renderDetalle(null);
+      state.detalle = { checklist: [], checklistEstado: {}, comunicaciones: [] };
+      state.detalleActualId = null;
+      renderDetalle(null, state.detalle);
       refrescarUI();
     } catch (error) {
       console.error(error);
@@ -343,6 +476,7 @@ function handleAuthState(user) {
     mostrarApp();
     iniciarSuscripciones();
     cargarCatalogos();
+    cargarFiltrosGuardados();
   } else {
     ocultarApp();
   }
@@ -366,7 +500,15 @@ function ocultarApp() {
   unsubscribeIncidencias = null;
   state.incidencias = [];
   state.seleccion = null;
-  renderDetalle(null);
+  state.filtros = {};
+  state.filtrosGuardados = [];
+  state.filtroActivoId = null;
+  state.detalle = { checklist: [], checklistEstado: {}, comunicaciones: [] };
+  state.detalleActualId = null;
+  recordatoriosMostrados.clear();
+  renderFiltrosRapidos(refs.filtrosRapidos, [], null);
+  if (refs.agenda) refs.agenda.innerHTML = "";
+  renderDetalle(null, state.detalle);
   refrescarUI();
 }
 
@@ -429,17 +571,49 @@ function refrescarUI() {
   if (!state.seleccion && filtradas.length) {
     state.seleccion = filtradas[0];
   }
+
+  if (!state.seleccion) {
+    state.detalle = { checklist: [], checklistEstado: {}, comunicaciones: [] };
+    state.detalleActualId = null;
+  } else {
+    const checklist = obtenerChecklistBase(state.seleccion);
+    const estadoChecklist = crearChecklistEstado(checklist, {
+      ...state.detalle.checklistEstado,
+      ...(state.seleccion.checklistEstado ?? {}),
+    });
+    state.detalle.checklist = checklist;
+    state.detalle.checklistEstado = estadoChecklist;
+    if (state.detalleActualId !== state.seleccion.id) {
+      state.detalle.comunicaciones = [];
+      state.detalleActualId = state.seleccion.id;
+      prepararDetalleExtra(state.seleccion);
+    }
+  }
+
   const seleccionId = state.seleccion?.id;
-  const enriquecidas = enriquecerIncidencias(filtradas);
-  renderListaIncidencias(refs.listaIncidencias, enriquecidas, seleccionId);
-  renderKanban(refs.columnasKanban, enriquecidas, seleccionId);
-  renderDetalle(state.seleccion ? enriquecerIncidencia(state.seleccion) : null);
+  const incidenciasFiltradas = enriquecerIncidencias(filtradas);
+  renderListaIncidencias(refs.listaIncidencias, incidenciasFiltradas, seleccionId);
+  renderKanban(refs.columnasKanban, incidenciasFiltradas, seleccionId);
+  const detalleActual = state.seleccion ? enriquecerIncidencia(state.seleccion) : null;
+  renderDetalle(detalleActual, state.detalle);
+
   const resumen = calcularResumen(filtradas);
   actualizarResumen(resumen);
+
+  const resumenDiario = calcularResumenDiario(state.incidencias);
+  actualizarResumenDiario(resumenDiario);
+
+  renderFiltrosRapidos(refs.filtrosRapidos, state.filtrosGuardados, state.filtroActivoId);
+
+  const todasEnriquecidas = enriquecerIncidencias(state.incidencias);
+  renderAgenda(refs.agenda, todasEnriquecidas);
+
   toggleVista(refs.listaWrapper, refs.kanbanBoard, state.vista);
   if (refs.btnToggleVista) {
     refs.btnToggleVista.textContent = state.vista === "kanban" ? "Ver lista" : "Ver Kanban";
   }
+
+  gestionarRecordatorios(state.incidencias);
 }
 
 function obtenerIncidenciasFiltradas() {
@@ -598,4 +772,124 @@ function enriquecerIncidencia(incidencia) {
     reparadorNombre: reparador?.nombre ?? reparador?.razonSocial ?? incidencia.reparadorId ?? "",
     polizaNombre: poliza?.nombre ?? poliza?.referencia ?? incidencia.polizaId ?? "",
   };
+}
+
+function construirFiltrosDesdeFormulario(data) {
+  return {
+    edificioId: data.get("edificioId") ? String(data.get("edificioId")) : "",
+    prioridad: data.get("prioridad") ? String(data.get("prioridad")) : "",
+    estado: data.get("estado") ? String(data.get("estado")) : "",
+    reparadorId: data.get("reparadorId") ? String(data.get("reparadorId")) : "",
+    desde: data.get("desde") ? String(data.get("desde")) : "",
+    hasta: data.get("hasta") ? String(data.get("hasta")) : "",
+    etiquetas: parseTags(String(data.get("etiquetas") ?? "")),
+    soloSiniestros: data.get("soloSiniestros") === "on",
+  };
+}
+
+function normalizarFiltros(criterios = {}) {
+  const etiquetas = Array.isArray(criterios.etiquetas)
+    ? criterios.etiquetas
+    : parseTags(String(criterios.etiquetas ?? ""));
+  return {
+    edificioId: criterios.edificioId ?? "",
+    prioridad: criterios.prioridad ?? "",
+    estado: criterios.estado ?? "",
+    reparadorId: criterios.reparadorId ?? "",
+    desde: criterios.desde ?? "",
+    hasta: criterios.hasta ?? "",
+    etiquetas,
+    soloSiniestros: Boolean(criterios.soloSiniestros),
+    busqueda: criterios.busqueda ?? "",
+  };
+}
+
+async function cargarFiltrosGuardados() {
+  if (!state.user) {
+    state.filtrosGuardados = [];
+    renderFiltrosRapidos(refs.filtrosRapidos, [], state.filtroActivoId);
+    return;
+  }
+  try {
+    const filtros = await obtenerFiltrosGuardados(state.user.uid);
+    state.filtrosGuardados = filtros.map((item) => ({
+      id: item.id,
+      nombre: item.nombre ?? "Sin nombre",
+      criterios: normalizarFiltros(item.criterios ?? {}),
+    }));
+    renderFiltrosRapidos(refs.filtrosRapidos, state.filtrosGuardados, state.filtroActivoId);
+  } catch (error) {
+    console.error("No se pudieron cargar los filtros guardados", error);
+  }
+}
+
+function aplicarFiltroGuardado(filtro) {
+  const criterios = normalizarFiltros(filtro.criterios ?? {});
+  state.filtros = criterios;
+  state.filtroActivoId = filtro.id;
+  sincronizarFormularioFiltros(criterios);
+  refrescarUI();
+  showToast(`Filtro "${filtro.nombre}" aplicado`, "success");
+}
+
+function sincronizarFormularioFiltros(filtros) {
+  if (refs.busquedaInput) {
+    refs.busquedaInput.value = filtros.busqueda ?? "";
+  }
+  if (!refs.formFiltros) return;
+  const assign = (selector, value) => {
+    const field = refs.formFiltros?.querySelector(selector);
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+      field.value = value ?? "";
+    }
+  };
+  assign("[name=\"edificioId\"]", filtros.edificioId ?? "");
+  assign("[name=\"prioridad\"]", filtros.prioridad ?? "");
+  assign("[name=\"estado\"]", filtros.estado ?? "");
+  assign("[name=\"reparadorId\"]", filtros.reparadorId ?? "");
+  assign("[name=\"desde\"]", filtros.desde ?? "");
+  assign("[name=\"hasta\"]", filtros.hasta ?? "");
+  const etiquetasInput = refs.formFiltros.querySelector("#filtro-etiquetas");
+  if (etiquetasInput instanceof HTMLInputElement) {
+    etiquetasInput.value = Array.isArray(filtros.etiquetas)
+      ? filtros.etiquetas.join(", ")
+      : String(filtros.etiquetas ?? "");
+  }
+  const soloSiniestros = refs.formFiltros.querySelector("#filtro-solo-siniestros");
+  if (soloSiniestros instanceof HTMLInputElement) {
+    soloSiniestros.checked = Boolean(filtros.soloSiniestros);
+  }
+}
+
+async function prepararDetalleExtra(incidencia, options = {}) {
+  if (!incidencia) return;
+  const { force = false } = options;
+  if (!force && state.detalleActualId === incidencia.id && state.detalle.comunicaciones.length) {
+    return;
+  }
+  state.detalleActualId = incidencia.id;
+  try {
+    const comunicaciones = await obtenerComunicaciones(incidencia.id);
+    state.detalle.comunicaciones = comunicaciones;
+    if (state.seleccion && state.seleccion.id === incidencia.id) {
+      renderDetalle(enriquecerIncidencia(state.seleccion), state.detalle);
+    }
+  } catch (error) {
+    console.error("No se pudieron cargar las comunicaciones", error);
+  }
+}
+
+function gestionarRecordatorios(incidencias) {
+  const ahora = new Date();
+  const limite = new Date(ahora.getTime() + 48 * 60 * 60 * 1000);
+  incidencias.forEach((incidencia) => {
+    if (!incidencia?.id || !incidencia.fechaLimite || incidencia.estado === "cerrada") return;
+    const fecha = new Date(incidencia.fechaLimite);
+    if (Number.isNaN(fecha.getTime())) return;
+    if (fecha >= ahora && fecha <= limite && !recordatoriosMostrados.has(incidencia.id)) {
+      recordatoriosMostrados.add(incidencia.id);
+      const fechaTexto = formatDate(incidencia.fechaLimite) || fecha.toLocaleDateString();
+      showToast(`Recordatorio: "${incidencia.titulo ?? "Incidencia"}" vence el ${fechaTexto}.`, "success");
+    }
+  });
 }

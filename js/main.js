@@ -164,11 +164,15 @@ function setupEventListeners() {
     }
   });
 
+  refs.listaIncidencias?.addEventListener("click", handleMoveIncidencia);
   refs.listaIncidencias?.addEventListener("click", handleSelectIncidencia);
   refs.listaIncidencias?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       const target = event.target;
       if (target instanceof HTMLElement) {
+        if (target.closest('[data-action="move-incidencia"]')) {
+          return;
+        }
         const tarjeta = target.closest(".tarjeta-incidencia");
         if (tarjeta) {
           event.preventDefault();
@@ -178,11 +182,15 @@ function setupEventListeners() {
     }
   });
 
+  refs.kanbanBoard?.addEventListener("click", handleMoveIncidencia);
   refs.kanbanBoard?.addEventListener("click", handleSelectIncidencia);
   refs.kanbanBoard?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       const target = event.target;
       if (target instanceof HTMLElement) {
+        if (target.closest('[data-action="move-incidencia"]')) {
+          return;
+        }
         const tarjeta = target.closest(".tarjeta-incidencia");
         if (tarjeta) {
           event.preventDefault();
@@ -249,11 +257,27 @@ function setupEventListeners() {
     if (!refs.formIncidencia) return;
     const data = new FormData(refs.formIncidencia);
     const incidencia = formDataToIncidencia(data);
+    const archivosInput = refs.formIncidencia.querySelector("#incidencia-archivo");
+    const archivosSeleccionados =
+      archivosInput instanceof HTMLInputElement && archivosInput.files
+        ? Array.from(archivosInput.files)
+        : [];
+    const erroresValidacion = validarIncidencia(incidencia, archivosSeleccionados);
+    if (erroresValidacion.length) {
+      const mensaje = erroresValidacion[0];
+      if (refs.errorIncidencia) {
+        refs.errorIncidencia.textContent = mensaje;
+      }
+      showToast(mensaje, "error");
+      return;
+    }
+    if (refs.errorIncidencia) {
+      refs.errorIncidencia.textContent = "";
+    }
     try {
       const id = await guardarIncidencia(incidencia);
-      const archivos = data.getAll("archivos").filter((valor) => valor instanceof File);
-      if (archivos.length) {
-        const nuevos = await subirArchivosIncidencia(id, archivos);
+      if (archivosSeleccionados.length) {
+        const nuevos = await subirArchivosIncidencia(id, archivosSeleccionados);
         const existente = state.incidencias.find((item) => item.id === id)?.archivos ?? [];
         const actualizados = [...existente, ...nuevos];
         await actualizarArchivosIncidencia(id, actualizados);
@@ -417,9 +441,15 @@ function setupEventListeners() {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const accion = target.closest("[data-delete-path]");
-    if (!accion || !state.seleccion) return;
-    const path = accion.getAttribute("data-delete-path") ?? "";
+    if (!(accion instanceof HTMLButtonElement) || !state.seleccion) return;
+    const path = accion.dataset.deletePath ?? "";
     if (!path) return;
+    const confirmar = window.confirm("¿Eliminar este archivo adjunto?");
+    if (!confirmar) return;
+    const textoOriginal = accion.textContent;
+    accion.textContent = "Eliminando...";
+    accion.disabled = true;
+    accion.setAttribute("aria-busy", "true");
     try {
       await eliminarArchivoStorage(path);
       const restantes = (state.seleccion.archivos ?? []).filter((item) => item.path !== path);
@@ -435,6 +465,10 @@ function setupEventListeners() {
     } catch (error) {
       console.error(error);
       showToast("No se pudo eliminar el archivo", "error");
+    } finally {
+      accion.textContent = textoOriginal ?? "Eliminar";
+      accion.disabled = false;
+      accion.removeAttribute("aria-busy");
     }
   });
 
@@ -559,6 +593,7 @@ async function cargarCatalogos() {
     refrescarUI();
   } catch (error) {
     console.error("No se pudieron cargar los catálogos", error);
+    showToast("No se pudieron cargar los catálogos. Inténtalo de nuevo.", "error");
   }
 }
 
@@ -623,10 +658,40 @@ function obtenerIncidenciasFiltradas() {
 function handleSelectIncidencia(event) {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
+  if (target.closest('[data-action="move-incidencia"]')) return;
   const tarjeta = target.closest(".tarjeta-incidencia");
   if (!tarjeta) return;
   event.preventDefault();
   seleccionarIncidencia(tarjeta.dataset.id);
+}
+
+async function handleMoveIncidencia(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const accion = target.closest('[data-action="move-incidencia"]');
+  if (!(accion instanceof HTMLElement)) return;
+  const tarjeta = accion.closest(".tarjeta-incidencia");
+  if (!tarjeta) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const id = tarjeta.dataset.id ?? "";
+  const estado = accion.getAttribute("data-estado") ?? "";
+  if (!id || !estado) return;
+  if (state.seleccion?.id === id && state.seleccion.estado === estado) {
+    return;
+  }
+  accion.setAttribute("aria-busy", "true");
+  accion.setAttribute("disabled", "true");
+  try {
+    await actualizarEstadoIncidencia(id, estado);
+    showToast("Estado actualizado", "success");
+  } catch (error) {
+    console.error(error);
+    showToast("No se pudo actualizar el estado", "error");
+  } finally {
+    accion.removeAttribute("aria-busy");
+    accion.removeAttribute("disabled");
+  }
 }
 
 function seleccionarIncidencia(id) {
@@ -657,6 +722,54 @@ function formDataToIncidencia(data) {
     throw new Error("El título es obligatorio");
   }
   return payload;
+}
+
+function validarIncidencia(incidencia, archivos) {
+  const errores = [];
+  const descripcion = incidencia.descripcion?.trim() ?? "";
+  if (descripcion.length < 15) {
+    errores.push("La descripción debe incluir al menos 15 caracteres.");
+  }
+  if (incidencia.esSiniestro && !(incidencia.referenciaSiniestro ?? "").trim()) {
+    errores.push("Indica la referencia del siniestro.");
+  }
+  const fechaLimite = incidencia.fechaLimite ? new Date(incidencia.fechaLimite) : null;
+  if (fechaLimite && Number.isNaN(fechaLimite.getTime())) {
+    errores.push("La fecha límite no es válida.");
+  } else if (fechaLimite) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    if (!incidencia.id && fechaLimite < hoy) {
+      errores.push("La fecha límite no puede ser anterior a hoy.");
+    }
+    if (incidencia.id) {
+      const original = state.incidencias.find((item) => item.id === incidencia.id);
+      const originalCreacion = original?.fechaCreacion ? new Date(original.fechaCreacion) : null;
+      if (originalCreacion && !Number.isNaN(originalCreacion.getTime()) && fechaLimite < originalCreacion) {
+        errores.push("La fecha límite no puede ser anterior a la fecha de creación.");
+      }
+    }
+  }
+  const tiposPermitidos = [
+    "image/",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+  const maxSize = 10 * 1024 * 1024;
+  const limiteMb = Math.round(maxSize / (1024 * 1024));
+  archivos.forEach((archivo) => {
+    const permitido = tiposPermitidos.some((tipo) =>
+      tipo.endsWith("/") ? archivo.type.startsWith(tipo) : archivo.type === tipo
+    );
+    if (!permitido) {
+      errores.push(`El archivo ${archivo.name} no tiene un formato permitido.`);
+    }
+    if (archivo.size > maxSize) {
+      errores.push(`El archivo ${archivo.name} supera los ${limiteMb} MB permitidos.`);
+    }
+  });
+  return errores;
 }
 
 function prepararFormularioIncidencia(incidencia) {

@@ -8,6 +8,8 @@
   --color-border: #d9d9d9;
   --color-text: #1f2933;
   --color-text-muted: #52616b;
+  --color-success: #198754;
+  --color-danger: #dc3545;
   --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.1);
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -200,6 +202,42 @@ textarea {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.metric-value {
+  line-height: 1.1;
+}
+
+.metric-delta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.metric-delta[data-trend="up"] {
+  color: var(--color-success);
+}
+
+.metric-delta[data-trend="down"] {
+  color: var(--color-danger);
+}
+
+.metric-delta[data-trend="up"]::before {
+  content: "↑";
+}
+
+.metric-delta[data-trend="down"]::before {
+  content: "↓";
+}
+
+.metric-delta[data-trend="equal"]::before {
+  content: "=";
 }
 
 .resumen {
@@ -347,6 +385,94 @@ textarea {
   background: rgba(13, 110, 253, 0.1);
   color: var(--color-primary);
   text-transform: capitalize;
+}
+
+.badge[data-type="prioridad"] {
+  text-transform: none;
+}
+
+.badge[data-type="siniestro"] {
+  background: rgba(220, 53, 69, 0.12);
+  color: var(--color-danger);
+  text-transform: none;
+  font-weight: 600;
+}
+
+.badge[data-type="archivos"] {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--color-text);
+  text-transform: none;
+}
+
+.tarjeta-indicadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tarjeta-progress {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.tarjeta-progress-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.tarjeta-progress-bar {
+  height: 6px;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.tarjeta-progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+.tarjeta-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tarjeta-acciones-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-primary);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.btn.ghost:not(:disabled):hover {
+  background: rgba(13, 110, 253, 0.12);
+  transform: none;
+  box-shadow: none;
+}
+
+.btn.ghost:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  transform: none;
+  box-shadow: none;
+}
+
+.tarjeta-acciones .btn {
+  border-radius: 999px;
 }
 
 .kanban {

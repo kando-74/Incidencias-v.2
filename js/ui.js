@@ -2,7 +2,16 @@ import { formatDate, stringifyTags, groupBy, sortIncidencias } from "./utils.js"
 
 const modalBackdrop = document.getElementById("modal-backdrop");
 const modalRoot = document.getElementById("modal-root");
+const focusableSelectors =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const modalReturnFocus = new WeakMap();
+const modalFocusHandlers = new WeakMap();
 const dayNames = ["L", "M", "X", "J", "V", "S", "D"];
+const estadoLabels = {
+  abierta: "Abierta",
+  en_proceso: "En proceso",
+  cerrada: "Cerrada",
+};
 
 /**
  * Gestiona los modales declarados con data-modal-target.
@@ -20,7 +29,7 @@ export function setupModales() {
           if (mode) {
             modal.dataset.mode = mode;
           }
-          openModal(modal);
+          openModal(modal, { trigger: openButton });
         }
       }
     }
@@ -56,13 +65,14 @@ export function setupModales() {
  * @param {HTMLDialogElement} modal
  */
 export function openModal(modal) {
+  const options = arguments.length > 1 ? arguments[1] : {};
   if (!modal.open) {
     modal.showModal();
   }
   document.body.classList.add("modal-open");
   modalBackdrop?.classList.remove("hidden");
   modal.dataset.openedAt = Date.now().toString();
-  modal.focus();
+  prepararFocoModal(modal, options.trigger);
 }
 
 /**
@@ -73,6 +83,7 @@ export function closeModal(modal) {
   modal.close();
   document.body.classList.remove("modal-open");
   modalBackdrop?.classList.add("hidden");
+  liberarFocoModal(modal);
 }
 
 /**
@@ -86,12 +97,19 @@ export function renderListaIncidencias(contenedor, incidencias, seleccionId) {
   const fragment = document.createDocumentFragment();
   sortIncidencias(incidencias).forEach((incidencia) => {
     const tarjeta = crearTarjetaIncidencia(incidencia);
-    if (seleccionId && incidencia.id === seleccionId) {
+    const seleccionada = Boolean(seleccionId && incidencia.id === seleccionId);
+    tarjeta.setAttribute("aria-selected", seleccionada ? "true" : "false");
+    if (seleccionada) {
       tarjeta.classList.add("is-selected");
     }
     fragment.appendChild(tarjeta);
   });
   contenedor.appendChild(fragment);
+  if (seleccionId) {
+    contenedor.setAttribute("aria-activedescendant", `incidencia-${seleccionId}`);
+  } else {
+    contenedor.removeAttribute("aria-activedescendant");
+  }
 }
 
 /**
@@ -108,16 +126,25 @@ export function renderKanban(columnas, incidencias, seleccionId) {
   Object.entries(columnas).forEach(([estado, contenedor]) => {
     const lista = sortIncidencias(grupos[estado] ?? []);
     const fragment = document.createDocumentFragment();
+    let activeDescendant = "";
     lista.forEach((incidencia) => {
       const tarjeta = crearTarjetaIncidencia(incidencia);
       tarjeta.setAttribute("draggable", "true");
       tarjeta.dataset.id = incidencia.id;
-      if (seleccionId && incidencia.id === seleccionId) {
+      const seleccionada = Boolean(seleccionId && incidencia.id === seleccionId);
+      tarjeta.setAttribute("aria-selected", seleccionada ? "true" : "false");
+      if (seleccionada) {
         tarjeta.classList.add("is-selected");
+        activeDescendant = tarjeta.id;
       }
       fragment.appendChild(tarjeta);
     });
     contenedor.appendChild(fragment);
+    if (activeDescendant) {
+      contenedor.setAttribute("aria-activedescendant", activeDescendant);
+    } else {
+      contenedor.removeAttribute("aria-activedescendant");
+    }
   });
 }
 
@@ -239,35 +266,147 @@ function crearTarjetaIncidencia(incidencia) {
   tarjeta.className = "tarjeta-incidencia";
   tarjeta.tabIndex = 0;
   tarjeta.dataset.id = incidencia.id;
-  tarjeta.setAttribute("role", "listitem");
+  tarjeta.setAttribute("role", "option");
+  tarjeta.id = `incidencia-${incidencia.id}`;
+  tarjeta.dataset.estado = incidencia.estado ?? "abierta";
 
   const titulo = document.createElement("h4");
   titulo.className = "titulo";
-  titulo.textContent = incidencia.titulo ?? "(Sin título)";
+  const tituloTexto = incidencia.titulo?.trim() || "(Sin título)";
+  titulo.textContent = tituloTexto;
 
   const descripcion = document.createElement("p");
   descripcion.className = "descripcion";
-  descripcion.textContent = incidencia.descripcion ?? "Sin descripción";
+  descripcion.textContent = incidencia.descripcion?.trim() || "Sin descripción";
 
   const meta = document.createElement("div");
   meta.className = "meta";
-  meta.innerHTML = `
-    <span class="badge">${incidencia.estado ?? "abierta"}</span>
-    <span class="badge">Prioridad: ${incidencia.prioridad ?? "media"}</span>
-    ${incidencia.edificioNombre ? `<span>${incidencia.edificioNombre}</span>` : ""}
-    ${incidencia.fechaLimite ? `<span>Límite: ${formatDate(incidencia.fechaLimite)}</span>` : ""}
-  `;
+  const estado = incidencia.estado ?? "abierta";
+  const estadoLabel = estadoLabels[estado] ?? estado;
+  meta.append(
+    crearBadge(estadoLabel, "estado"),
+    crearBadge(`Prioridad: ${incidencia.prioridad ?? "media"}`, "prioridad")
+  );
+  if (incidencia.edificioNombre) {
+    const edificio = document.createElement("span");
+    edificio.textContent = incidencia.edificioNombre;
+    meta.appendChild(edificio);
+  }
+  if (incidencia.fechaLimite) {
+    const fecha = document.createElement("span");
+    fecha.textContent = `Límite: ${formatDate(incidencia.fechaLimite)}`;
+    meta.appendChild(fecha);
+  }
+
+  const indicadores = crearIndicadoresTarjeta(incidencia);
 
   const etiquetas = document.createElement("p");
   etiquetas.className = "meta";
   if (incidencia.etiquetas?.length) {
     etiquetas.textContent = `Etiquetas: ${stringifyTags(incidencia.etiquetas)}`;
-  } else {
-    etiquetas.textContent = "";
   }
 
-  tarjeta.append(titulo, descripcion, meta, etiquetas);
+  const acciones = crearAccionesTarjeta(incidencia);
+
+  const ariaLabelPartes = [
+    tituloTexto,
+    `Estado ${estadoLabel}`,
+    `Prioridad ${incidencia.prioridad ?? "media"}`,
+  ];
+  if (incidencia.fechaLimite) {
+    ariaLabelPartes.push(`Límite ${formatDate(incidencia.fechaLimite)}`);
+  }
+  tarjeta.setAttribute("aria-label", ariaLabelPartes.join(". "));
+
+  tarjeta.append(titulo, descripcion, meta);
+  if (indicadores.childElementCount > 0) {
+    tarjeta.appendChild(indicadores);
+  }
+  if (etiquetas.textContent) {
+    tarjeta.appendChild(etiquetas);
+  }
+  if (acciones.childElementCount > 0) {
+    tarjeta.appendChild(acciones);
+  }
   return tarjeta;
+}
+
+function crearBadge(texto, tipo) {
+  const badge = document.createElement("span");
+  badge.className = "badge";
+  if (tipo) {
+    badge.dataset.type = tipo;
+  }
+  badge.textContent = texto;
+  return badge;
+}
+
+function crearIndicadoresTarjeta(incidencia) {
+  const contenedor = document.createElement("div");
+  contenedor.className = "tarjeta-indicadores";
+  const checklist = Array.isArray(incidencia.checklist) ? incidencia.checklist : [];
+  const checklistEstado = incidencia.checklistEstado ?? {};
+  const totalPasos = checklist.length || Object.keys(checklistEstado).length;
+  const completados = Object.values(checklistEstado).filter(Boolean).length;
+  if (totalPasos > 0) {
+    const porcentaje = Math.round((completados / totalPasos) * 100);
+    const progress = document.createElement("div");
+    progress.className = "tarjeta-progress";
+    const label = document.createElement("span");
+    label.className = "tarjeta-progress-label";
+    label.textContent = `Checklist ${completados}/${totalPasos}`;
+    const barra = document.createElement("div");
+    barra.className = "tarjeta-progress-bar";
+    barra.setAttribute("role", "progressbar");
+    barra.setAttribute("aria-valuemin", "0");
+    barra.setAttribute("aria-valuemax", String(totalPasos));
+    barra.setAttribute("aria-valuenow", String(completados));
+    const relleno = document.createElement("div");
+    relleno.className = "tarjeta-progress-fill";
+    relleno.style.width = `${porcentaje}%`;
+    barra.appendChild(relleno);
+    progress.append(label, barra);
+    contenedor.appendChild(progress);
+  }
+  if (incidencia.esSiniestro) {
+    contenedor.appendChild(crearBadge("Siniestro", "siniestro"));
+  }
+  const archivos = Array.isArray(incidencia.archivos) ? incidencia.archivos.length : 0;
+  if (archivos > 0) {
+    const texto = archivos === 1 ? "1 archivo" : `${archivos} archivos`;
+    contenedor.appendChild(crearBadge(texto, "archivos"));
+  }
+  return contenedor;
+}
+
+function crearAccionesTarjeta(incidencia) {
+  const contenedor = document.createElement("div");
+  contenedor.className = "tarjeta-acciones";
+  contenedor.setAttribute("role", "group");
+  contenedor.setAttribute("aria-label", "Mover incidencia por teclado");
+  const estadoActual = incidencia.estado ?? "abierta";
+  const botones = [];
+  ["abierta", "en_proceso", "cerrada"].forEach((estado) => {
+    if (estado === estadoActual) return;
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "btn ghost";
+    boton.dataset.action = "move-incidencia";
+    boton.dataset.estado = estado;
+    boton.textContent = estadoLabels[estado] ?? estado;
+    boton.setAttribute(
+      "aria-label",
+      `Mover a ${estadoLabels[estado] ?? estado}`
+    );
+    botones.push(boton);
+  });
+  if (botones.length) {
+    const label = document.createElement("span");
+    label.className = "tarjeta-acciones-label";
+    label.textContent = "Mover a:";
+    contenedor.append(label, ...botones);
+  }
+  return contenedor;
 }
 
 /**
@@ -381,6 +520,103 @@ export function showToast(mensaje, tipo = "success") {
   }, 3000);
 }
 
+function prepararFocoModal(modal, trigger) {
+  const opener = trigger instanceof HTMLElement
+    ? trigger
+    : document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
+  if (opener) {
+    modalReturnFocus.set(modal, opener);
+  }
+  if (!modalFocusHandlers.has(modal)) {
+    const handler = (event) => mantenerFocoEnModal(event, modal);
+    modal.addEventListener("keydown", handler);
+    modalFocusHandlers.set(modal, handler);
+  }
+  const focusables = obtenerElementosFoco(modal);
+  const autoFocus = modal.querySelector("[data-autofocus]");
+  const objetivo =
+    autoFocus instanceof HTMLElement
+      ? autoFocus
+      : focusables[0] ?? modal;
+  window.requestAnimationFrame(() => {
+    if (objetivo instanceof HTMLElement) {
+      objetivo.focus();
+    } else {
+      modal.focus();
+    }
+  });
+}
+
+function liberarFocoModal(modal) {
+  const handler = modalFocusHandlers.get(modal);
+  if (handler) {
+    modal.removeEventListener("keydown", handler);
+    modalFocusHandlers.delete(modal);
+  }
+  const opener = modalReturnFocus.get(modal);
+  modalReturnFocus.delete(modal);
+  if (opener instanceof HTMLElement) {
+    opener.focus();
+  }
+}
+
+function obtenerElementosFoco(modal) {
+  return Array.from(modal.querySelectorAll(focusableSelectors)).filter(
+    (element) =>
+      element instanceof HTMLElement &&
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true" &&
+      !element.closest("[hidden]") &&
+      (element.offsetParent !== null || element.getClientRects().length > 0)
+  );
+}
+
+function mantenerFocoEnModal(event, modal) {
+  if (event.key !== "Tab") return;
+  const focusables = obtenerElementosFoco(modal);
+  if (!focusables.length) {
+    event.preventDefault();
+    modal.focus();
+    return;
+  }
+  const current = /** @type {HTMLElement | null} */ (document.activeElement);
+  const index = current ? focusables.indexOf(current) : -1;
+  if (event.shiftKey) {
+    if (index <= 0) {
+      event.preventDefault();
+      focusables[focusables.length - 1].focus();
+    }
+  } else {
+    if (index === focusables.length - 1) {
+      event.preventDefault();
+      focusables[0].focus();
+    } else if (index === -1) {
+      event.preventDefault();
+      focusables[0].focus();
+    }
+  }
+}
+
+function actualizarDeltaMetricas(elemento, info) {
+  if (!info || typeof info.diferencia !== "number") {
+    elemento.textContent = "";
+    elemento.removeAttribute("data-trend");
+    return;
+  }
+  const delta = info.diferencia;
+  const etiqueta = info.etiqueta ? ` ${info.etiqueta}` : "";
+  if (delta === 0) {
+    elemento.textContent = `Sin cambios${etiqueta}`.trim();
+    elemento.dataset.trend = "equal";
+    return;
+  }
+  const prefijo = delta > 0 ? "+" : "";
+  elemento.textContent = `${prefijo}${delta}${etiqueta}`.trim();
+  elemento.dataset.trend = delta > 0 ? "up" : "down";
+}
+
 /**
  * Actualiza los indicadores del panel diario.
  * @param {{ abiertas: number; proximas: number; sinAsignar: number; nuevas: number }} metrics
@@ -392,10 +628,23 @@ export function actualizarResumenDiario(metrics) {
     sinAsignar: document.getElementById("metric-sin-asignar"),
     nuevas: document.getElementById("metric-nuevas"),
   };
+  const deltaRefs = {
+    abiertas: document.getElementById("metric-abiertas-delta"),
+    proximas: document.getElementById("metric-proximas-delta"),
+    sinAsignar: document.getElementById("metric-sin-asignar-delta"),
+    nuevas: document.getElementById("metric-nuevas-delta"),
+  };
   if (refs.abiertas) refs.abiertas.textContent = String(metrics.abiertas ?? 0);
   if (refs.proximas) refs.proximas.textContent = String(metrics.proximas ?? 0);
   if (refs.sinAsignar) refs.sinAsignar.textContent = String(metrics.sinAsignar ?? 0);
   if (refs.nuevas) refs.nuevas.textContent = String(metrics.nuevas ?? 0);
+  const deltas = metrics.deltas ?? {};
+  ["abiertas", "proximas", "sinAsignar", "nuevas"].forEach((clave) => {
+    const elemento = deltaRefs[clave];
+    if (!elemento) return;
+    const info = deltas[clave];
+    actualizarDeltaMetricas(elemento, info);
+  });
 }
 
 /**

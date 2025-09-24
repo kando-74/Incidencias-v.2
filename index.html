@@ -63,6 +63,9 @@
             <button class="btn" type="button" data-modal-target="modal-edificios">
               Gestionar edificios
             </button>
+            <button class="btn" type="button" data-modal-target="modal-reparadores">
+              Gestionar reparadores
+            </button>
             <button class="btn" type="button" id="btn-toggle-vista" data-view="lista">
               Ver Kanban
             </button>
@@ -377,6 +380,65 @@
       </div>
     </dialog>
     <!-- FIN: MODAL-EDIFICIOS -->
+
+    <!-- INICIO: MODAL-REPARADORES -->
+    <dialog
+      id="modal-reparadores"
+      class="modal"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="modal-reparadores-titulo"
+    >
+      <div class="modal-content modal-content--wide">
+        <header class="modal-header">
+          <h2 id="modal-reparadores-titulo">Gestión de reparadores</h2>
+          <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="modal-body modal-body--split">
+          <section class="modal-panel">
+            <h3 id="modal-reparadores-form-titulo">Añadir reparador</h3>
+            <form id="form-reparador" class="form-reparador">
+              <input type="hidden" id="reparador-id" name="id" />
+              <label for="reparador-nombre">Nombre *</label>
+              <input id="reparador-nombre" name="nombre" type="text" required />
+
+              <label for="reparador-especialidad">Especialidad</label>
+              <input id="reparador-especialidad" name="especialidad" type="text" />
+
+              <label for="reparador-telefono">Teléfono</label>
+              <input id="reparador-telefono" name="telefono" type="tel" />
+
+              <label for="reparador-email">Correo electrónico</label>
+              <input id="reparador-email" name="email" type="email" />
+
+              <label for="reparador-notas">Notas</label>
+              <textarea id="reparador-notas" name="notas" rows="3"></textarea>
+
+              <p
+                id="reparador-error"
+                class="form-error"
+                role="alert"
+                aria-live="assertive"
+              ></p>
+
+              <div class="modal-footer modal-footer--inline">
+                <button type="submit" class="btn primary" id="btn-guardar-reparador">
+                  Guardar reparador
+                </button>
+                <button type="button" class="btn" id="btn-cancelar-reparador">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </section>
+          <section class="modal-panel">
+            <h3 id="modal-reparadores-lista-titulo">Reparadores registrados</h3>
+            <ul id="lista-reparadores" class="lista-reparadores"></ul>
+          </section>
+        </div>
+      </div>
+    </dialog>
+    <!-- FIN: MODAL-REPARADORES -->
 
     <!-- INICIO: MODAL-INCIDENCIA -->
     <dialog id="modal-incidencia" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-incidencia-titulo">

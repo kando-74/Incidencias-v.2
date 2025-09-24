@@ -854,7 +854,8 @@ textarea {
   margin: 0;
 }
 
-.form-edificio textarea {
+.form-edificio textarea,
+.form-reparador textarea {
   resize: vertical;
 }
 
@@ -869,7 +870,8 @@ textarea {
   min-width: 0;
 }
 
-.lista-edificios {
+.lista-edificios,
+.lista-reparadores {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -877,7 +879,8 @@ textarea {
   gap: 0.75rem;
 }
 
-.edificio-item {
+.edificio-item,
+.reparador-item {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-alt);
@@ -886,26 +889,30 @@ textarea {
   gap: 0.5rem;
 }
 
-.edificio-item header {
+.edificio-item header,
+.reparador-item header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
-.edificio-item-titulo {
+.edificio-item-titulo,
+.reparador-item-titulo {
   font-weight: 700;
   margin: 0;
 }
 
-.edificio-item-meta {
+.edificio-item-meta,
+.reparador-item-meta {
   font-size: 0.85rem;
   color: var(--color-text-muted);
   display: grid;
   gap: 0.25rem;
 }
 
-.edificio-item-acciones {
+.edificio-item-acciones,
+.reparador-item-acciones {
   display: flex;
   gap: 0.5rem;
 }

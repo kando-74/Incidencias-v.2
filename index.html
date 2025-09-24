@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de Incidencias</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="app-header" role="banner">
+      <h1>Gestión de incidencias</h1>
+      <nav aria-label="Acciones de sesión">
+        <button id="btn-logout" type="button" class="btn secondary" hidden>
+          Cerrar sesión
+        </button>
+      </nav>
+    </header>
+
+    <main id="main-content" class="app-main" tabindex="-1">
+      <section id="login-view" class="view" aria-labelledby="login-title">
+        <div class="card">
+          <h2 id="login-title">Iniciar sesión</h2>
+          <form id="login-form" autocomplete="on">
+            <label for="login-email">Correo electrónico</label>
+            <input
+              id="login-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+            />
+
+            <label for="login-password">Contraseña</label>
+            <input
+              id="login-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+
+            <button type="submit" class="btn primary">Entrar</button>
+            <p id="login-error" class="form-error" role="alert" aria-live="assertive"></p>
+          </form>
+        </div>
+      </section>
+
+      <section id="app-view" class="view hidden" aria-labelledby="app-title" hidden>
+        <div class="toolbar" role="toolbar" aria-label="Acciones principales">
+          <h2 id="app-title">Panel de incidencias</h2>
+          <div class="toolbar-actions">
+            <button
+              class="btn primary"
+              type="button"
+              data-modal-target="modal-incidencia"
+              data-modal-mode="create"
+            >
+              Nueva incidencia
+            </button>
+            <button class="btn" type="button" data-modal-target="modal-filtros">
+              Filtros avanzados
+            </button>
+            <button class="btn" type="button" id="btn-toggle-vista" data-view="lista">
+              Ver Kanban
+            </button>
+            <button class="btn" type="button" id="btn-exportar">
+              Exportar CSV
+            </button>
+            <button class="btn" type="button" id="btn-imprimir">
+              Imprimir
+            </button>
+          </div>
+        </div>
+
+        <section class="resumen" aria-live="polite">
+          <div class="resumen-item">
+            <span class="resumen-label">Total:</span>
+            <span id="resumen-total" class="resumen-value">0</span>
+          </div>
+          <div class="resumen-item">
+            <span class="resumen-label">Abiertas:</span>
+            <span id="resumen-abiertas" class="resumen-value">0</span>
+          </div>
+          <div class="resumen-item">
+            <span class="resumen-label">En proceso:</span>
+            <span id="resumen-proceso" class="resumen-value">0</span>
+          </div>
+          <div class="resumen-item">
+            <span class="resumen-label">Cerradas:</span>
+            <span id="resumen-cerradas" class="resumen-value">0</span>
+          </div>
+        </section>
+
+        <section class="listado" aria-label="Listado de incidencias" data-view="lista">
+          <div class="listado-filtros">
+            <label class="sr-only" for="filtro-busqueda">Buscar incidencia</label>
+            <input
+              id="filtro-busqueda"
+              type="search"
+              placeholder="Buscar por título o referencia"
+              aria-describedby="hint-busqueda"
+            />
+            <span id="hint-busqueda" class="hint">
+              Pulsa Enter para aplicar búsqueda rápida.
+            </span>
+          </div>
+          <div id="lista-incidencias" role="list" class="lista-incidencias"></div>
+        </section>
+
+        <section
+          id="kanban-board"
+          class="kanban hidden"
+          aria-label="Kanban de incidencias"
+          data-view="kanban"
+          hidden
+        >
+          <div class="kanban-column" data-estado="abierta">
+            <h3 id="kanban-abierta-titulo">Abiertas</h3>
+            <div id="kanban-abierta" class="kanban-list" role="list" aria-labelledby="kanban-abierta-titulo"></div>
+          </div>
+          <div class="kanban-column" data-estado="en_proceso">
+            <h3 id="kanban-proceso-titulo">En proceso</h3>
+            <div id="kanban-en-proceso" class="kanban-list" role="list" aria-labelledby="kanban-proceso-titulo"></div>
+          </div>
+          <div class="kanban-column" data-estado="cerrada">
+            <h3 id="kanban-cerrada-titulo">Cerradas</h3>
+            <div id="kanban-cerrada" class="kanban-list" role="list" aria-labelledby="kanban-cerrada-titulo"></div>
+          </div>
+        </section>
+
+        <aside id="detalle-panel" class="detalle" aria-live="polite">
+          <h3>Detalle de la incidencia</h3>
+          <dl>
+            <div>
+              <dt>Título</dt>
+              <dd id="detalle-titulo">Selecciona una incidencia</dd>
+            </div>
+            <div>
+              <dt>Descripción</dt>
+              <dd id="detalle-descripcion">—</dd>
+            </div>
+            <div>
+              <dt>Estado</dt>
+              <dd id="detalle-estado">—</dd>
+            </div>
+            <div>
+              <dt>Prioridad</dt>
+              <dd id="detalle-prioridad">—</dd>
+            </div>
+            <div>
+              <dt>Edificio</dt>
+              <dd id="detalle-edificio">—</dd>
+            </div>
+            <div>
+              <dt>Reparador</dt>
+              <dd id="detalle-reparador">—</dd>
+            </div>
+            <div>
+              <dt>Fechas</dt>
+              <dd id="detalle-fechas">—</dd>
+            </div>
+          <div>
+            <dt>Siniestro</dt>
+            <dd id="detalle-siniestro">—</dd>
+          </div>
+          <div>
+            <dt>Póliza</dt>
+            <dd id="detalle-poliza">—</dd>
+          </div>
+          <div>
+            <dt>Archivos</dt>
+            <dd id="detalle-archivos">—</dd>
+          </div>
+        </dl>
+          <div class="detalle-acciones">
+            <button
+              id="btn-editar-incidencia"
+              class="btn secondary"
+              type="button"
+              data-modal-target="modal-incidencia"
+              data-modal-mode="edit"
+              disabled
+            >
+              Editar incidencia
+            </button>
+            <button id="btn-abrir-archivos" class="btn" type="button" disabled>
+              Ver archivos
+            </button>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <div id="modal-root"></div>
+
+    <!-- INICIO: MODAL-INCIDENCIA -->
+    <dialog id="modal-incidencia" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-incidencia-titulo">
+      <form method="dialog" id="form-incidencia" class="modal-content">
+        <header class="modal-header">
+          <h2 id="modal-incidencia-titulo">Nueva incidencia</h2>
+          <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="modal-body">
+          <input type="hidden" id="incidencia-id" name="id" />
+          <label for="incidencia-titulo">Título *</label>
+          <input id="incidencia-titulo" name="titulo" type="text" required />
+
+          <label for="incidencia-descripcion">Descripción</label>
+          <textarea id="incidencia-descripcion" name="descripcion" rows="4"></textarea>
+
+          <label for="incidencia-estado">Estado</label>
+          <select id="incidencia-estado" name="estado">
+            <option value="abierta">Abierta</option>
+            <option value="en_proceso">En proceso</option>
+            <option value="cerrada">Cerrada</option>
+          </select>
+
+          <label for="incidencia-prioridad">Prioridad</label>
+          <select id="incidencia-prioridad" name="prioridad">
+            <option value="baja">Baja</option>
+            <option value="media">Media</option>
+            <option value="alta">Alta</option>
+            <option value="critica">Crítica</option>
+          </select>
+
+          <label for="incidencia-edificio">Edificio</label>
+          <select id="incidencia-edificio" name="edificioId"></select>
+
+          <label for="incidencia-reparador">Reparador</label>
+          <select id="incidencia-reparador" name="reparadorId"></select>
+
+          <label for="incidencia-etiquetas">Etiquetas (separadas por comas)</label>
+          <input id="incidencia-etiquetas" name="etiquetas" type="text" />
+
+          <fieldset>
+            <legend>Seguro</legend>
+            <label class="checkbox">
+              <input id="incidencia-siniestro" name="esSiniestro" type="checkbox" />
+              Es siniestro
+            </label>
+            <label for="incidencia-poliza">Póliza</label>
+            <select id="incidencia-poliza" name="polizaId"></select>
+            <label for="incidencia-referencia">Referencia siniestro</label>
+            <input id="incidencia-referencia" name="referenciaSiniestro" type="text" />
+          </fieldset>
+
+          <label for="incidencia-fecha-limite">Fecha límite</label>
+          <input id="incidencia-fecha-limite" name="fechaLimite" type="date" />
+
+          <label for="incidencia-archivo">Archivos</label>
+          <input id="incidencia-archivo" name="archivos" type="file" multiple />
+        </div>
+        <footer class="modal-footer">
+          <span id="incidencia-error" class="form-error" role="alert" aria-live="assertive"></span>
+          <button type="submit" class="btn primary">Guardar</button>
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+        </footer>
+      </form>
+    </dialog>
+    <!-- FIN: MODAL-INCIDENCIA -->
+
+    <!-- INICIO: MODAL-FILTROS -->
+    <dialog id="modal-filtros" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-filtros-titulo">
+      <form method="dialog" id="form-filtros" class="modal-content">
+        <header class="modal-header">
+          <h2 id="modal-filtros-titulo">Filtros avanzados</h2>
+          <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="modal-body grid">
+          <label for="filtro-edificio">Edificio</label>
+          <select id="filtro-edificio" name="edificioId"></select>
+
+          <label for="filtro-prioridad">Prioridad</label>
+          <select id="filtro-prioridad" name="prioridad">
+            <option value="">Todas</option>
+            <option value="baja">Baja</option>
+            <option value="media">Media</option>
+            <option value="alta">Alta</option>
+            <option value="critica">Crítica</option>
+          </select>
+
+          <label for="filtro-estado">Estado</label>
+          <select id="filtro-estado" name="estado">
+            <option value="">Todos</option>
+            <option value="abierta">Abierta</option>
+            <option value="en_proceso">En proceso</option>
+            <option value="cerrada">Cerrada</option>
+          </select>
+
+          <label for="filtro-desde">Desde</label>
+          <input id="filtro-desde" name="desde" type="date" />
+
+          <label for="filtro-hasta">Hasta</label>
+          <input id="filtro-hasta" name="hasta" type="date" />
+
+          <label for="filtro-etiquetas">Etiquetas</label>
+          <input id="filtro-etiquetas" name="etiquetas" type="text" placeholder="limpieza, urgente" />
+
+          <label class="checkbox">
+            <input id="filtro-solo-siniestros" name="soloSiniestros" type="checkbox" />
+            Solo siniestros
+          </label>
+        </div>
+        <footer class="modal-footer">
+          <button type="reset" class="btn secondary" id="btn-limpiar-filtros">Limpiar</button>
+          <button type="submit" class="btn primary">Aplicar</button>
+        </footer>
+      </form>
+    </dialog>
+    <!-- FIN: MODAL-FILTROS -->
+
+    <!-- INICIO: MODAL-ARCHIVOS -->
+    <dialog id="modal-archivos" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-archivos-titulo">
+      <div class="modal-content">
+        <header class="modal-header">
+          <h2 id="modal-archivos-titulo">Archivos de la incidencia</h2>
+          <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="modal-body" id="lista-archivos"></div>
+      </div>
+    </dialog>
+    <!-- FIN: MODAL-ARCHIVOS -->
+
+    <div id="modal-backdrop" class="modal-backdrop hidden" aria-hidden="true"></div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

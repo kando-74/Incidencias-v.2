@@ -1,0 +1,471 @@
+:root {
+  color-scheme: light dark;
+  --color-primary: #0d6efd;
+  --color-primary-text: #ffffff;
+  --color-secondary: #6c757d;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f5f5f5;
+  --color-border: #d9d9d9;
+  --color-text: #1f2933;
+  --color-text-muted: #52616b;
+  --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.1);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  min-height: 100%;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.app-main {
+  padding: 2rem;
+  display: grid;
+  gap: 2rem;
+}
+
+.view.hidden {
+  display: none;
+}
+
+.card {
+  max-width: 360px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.card h2 {
+  margin-top: 0;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  margin-bottom: 1rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: inherit;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  font-weight: 600;
+}
+
+.btn.primary {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+}
+
+.btn.secondary {
+  background: var(--color-secondary);
+  color: var(--color-primary-text);
+  border-color: var(--color-secondary);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn:not(:disabled):hover,
+.btn:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.resumen-item {
+  background: var(--color-surface);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.resumen-label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.listado {
+  background: var(--color-surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.listado-filtros {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.lista-incidencias {
+  display: grid;
+  gap: 1rem;
+}
+
+.tarjeta-incidencia {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tarjeta-incidencia:hover,
+.tarjeta-incidencia:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  outline: none;
+}
+
+.tarjeta-incidencia.is-selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.2);
+}
+
+.tarjeta-incidencia .titulo {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.tarjeta-incidencia .meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  background: rgba(13, 110, 253, 0.1);
+  color: var(--color-primary);
+  text-transform: capitalize;
+}
+
+.kanban {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.kanban-column {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  box-shadow: var(--shadow-md);
+}
+
+.kanban-column h3 {
+  margin-top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.kanban-list {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 200px;
+}
+
+.kanban-list.drag-over {
+  outline: 2px dashed var(--color-primary);
+  outline-offset: 4px;
+  background: rgba(13, 110, 253, 0.08);
+}
+
+.detalle {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+}
+
+.detalle dl {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.detalle dt {
+  font-weight: 600;
+}
+
+.detalle dd {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.detalle-acciones {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.modal {
+  width: min(640px, 90vw);
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0;
+  box-shadow: var(--shadow-md);
+}
+
+.modal::backdrop {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.modal[open] {
+  display: flex;
+}
+
+.modal-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.modal-header,
+.modal-footer {
+  padding: 1rem 1.5rem;
+  background: var(--color-surface-alt);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.modal-body.grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 90;
+}
+
+.modal-backdrop.hidden {
+  display: none;
+}
+
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  border-left: 4px solid var(--color-primary);
+  z-index: 120;
+}
+
+.toast[data-tipo="error"] {
+  border-left-color: #d32f2f;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lista-archivos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.lista-archivos a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.lista-archivos a:hover,
+.lista-archivos a:focus-visible {
+  text-decoration: underline;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.form-error {
+  color: #d32f2f;
+  font-size: 0.85rem;
+  min-height: 1.2rem;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 960px) {
+  .app-main {
+    padding: 1rem;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .detalle {
+    order: 1;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .app-header,
+  .toolbar,
+  #btn-imprimir,
+  #btn-exportar,
+  #btn-toggle-vista,
+  #btn-logout,
+  dialog,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  .lista-incidencias,
+  .kanban,
+  .detalle {
+    box-shadow: none;
+  }
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}

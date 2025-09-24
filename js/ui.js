@@ -96,7 +96,7 @@ export function renderListaIncidencias(contenedor, incidencias, seleccionId) {
   contenedor.innerHTML = "";
   const fragment = document.createDocumentFragment();
   sortIncidencias(incidencias).forEach((incidencia) => {
-    const tarjeta = crearTarjetaIncidencia(incidencia);
+    const tarjeta = crearTarjetaIncidencia(incidencia, "lista");
     const seleccionada = Boolean(seleccionId && incidencia.id === seleccionId);
     tarjeta.setAttribute("aria-selected", seleccionada ? "true" : "false");
     if (seleccionada) {
@@ -128,7 +128,7 @@ export function renderKanban(columnas, incidencias, seleccionId) {
     const fragment = document.createDocumentFragment();
     let activeDescendant = "";
     lista.forEach((incidencia) => {
-      const tarjeta = crearTarjetaIncidencia(incidencia);
+      const tarjeta = crearTarjetaIncidencia(incidencia, "kanban");
       tarjeta.setAttribute("draggable", "true");
       tarjeta.dataset.id = incidencia.id;
       const seleccionada = Boolean(seleccionId && incidencia.id === seleccionId);
@@ -260,15 +260,96 @@ export function renderDetalle(incidencia) {
 /**
  * Crea una tarjeta accesible para una incidencia.
  * @param {any} incidencia
+ * @param {"lista" | "kanban"} [modo]
  */
-function crearTarjetaIncidencia(incidencia) {
+function crearTarjetaIncidencia(incidencia, modo = "lista") {
+  if (modo === "kanban") {
+    return crearTarjetaKanban(incidencia);
+  }
+  return crearTarjetaLinea(incidencia);
+}
+
+function crearTarjetaLinea(incidencia) {
   const tarjeta = document.createElement("article");
-  tarjeta.className = "tarjeta-incidencia";
+  tarjeta.className = "tarjeta-incidencia tarjeta-incidencia--linea";
   tarjeta.tabIndex = 0;
   tarjeta.dataset.id = incidencia.id;
   tarjeta.setAttribute("role", "option");
   tarjeta.id = `incidencia-${incidencia.id}`;
-  tarjeta.dataset.estado = incidencia.estado ?? "abierta";
+  const estado = incidencia.estado ?? "abierta";
+  tarjeta.dataset.estado = estado;
+
+  const tituloTexto = incidencia.titulo?.trim() || "(Sin título)";
+  const titulo = document.createElement("span");
+  titulo.className = "linea-titulo";
+  titulo.textContent = tituloTexto;
+
+  if (incidencia.esSiniestro) {
+    const siniestro = crearBadge("Siniestro", "siniestro");
+    siniestro.classList.add("linea-indicador");
+    titulo.appendChild(siniestro);
+  }
+  const archivos = Array.isArray(incidencia.archivos) ? incidencia.archivos.length : 0;
+  if (archivos > 0) {
+    const texto = archivos === 1 ? "1 archivo" : `${archivos} archivos`;
+    const badgeArchivos = crearBadge(texto, "archivos");
+    badgeArchivos.classList.add("linea-indicador");
+    titulo.appendChild(badgeArchivos);
+  }
+
+  const edificio = document.createElement("span");
+  edificio.className = "linea-edificio";
+  edificio.textContent = incidencia.edificioNombre || "Sin edificio";
+
+  const estadoLabel = estadoLabels[estado] ?? estado;
+  const estadoBadge = crearBadge(estadoLabel, "estado");
+  estadoBadge.classList.add("linea-estado");
+
+  const prioridadTexto = formatearPrioridad(incidencia.prioridad);
+  const prioridadBadge = crearBadge(prioridadTexto, "prioridad");
+  prioridadBadge.classList.add("linea-prioridad");
+
+  const fecha = document.createElement("span");
+  fecha.className = "linea-fecha";
+  if (incidencia.fechaLimite) {
+    fecha.textContent = formatDate(incidencia.fechaLimite);
+    if (esFechaVencida(incidencia.fechaLimite)) {
+      fecha.classList.add("is-alerta");
+    }
+  } else {
+    fecha.textContent = "Sin límite";
+    fecha.classList.add("linea-fecha--sin-limite");
+  }
+
+  const acciones = crearAccionesTarjeta(incidencia);
+  acciones.classList.add("linea-acciones");
+
+  const ariaLabelPartes = [
+    tituloTexto,
+    `Estado ${estadoLabel}`,
+    `Prioridad ${prioridadTexto}`,
+    `Edificio ${edificio.textContent}`,
+  ];
+  if (incidencia.fechaLimite) {
+    ariaLabelPartes.push(`Fecha límite ${formatDate(incidencia.fechaLimite)}`);
+  } else {
+    ariaLabelPartes.push("Sin fecha límite");
+  }
+  tarjeta.setAttribute("aria-label", ariaLabelPartes.join(". "));
+
+  tarjeta.append(titulo, edificio, estadoBadge, prioridadBadge, fecha, acciones);
+  return tarjeta;
+}
+
+function crearTarjetaKanban(incidencia) {
+  const tarjeta = document.createElement("article");
+  tarjeta.className = "tarjeta-incidencia tarjeta-incidencia--kanban";
+  tarjeta.tabIndex = 0;
+  tarjeta.dataset.id = incidencia.id;
+  tarjeta.setAttribute("role", "option");
+  tarjeta.id = `incidencia-${incidencia.id}`;
+  const estado = incidencia.estado ?? "abierta";
+  tarjeta.dataset.estado = estado;
 
   const titulo = document.createElement("h4");
   titulo.className = "titulo";
@@ -281,7 +362,6 @@ function crearTarjetaIncidencia(incidencia) {
 
   const meta = document.createElement("div");
   meta.className = "meta";
-  const estado = incidencia.estado ?? "abierta";
   const estadoLabel = estadoLabels[estado] ?? estado;
   meta.append(
     crearBadge(estadoLabel, "estado"),
@@ -329,6 +409,20 @@ function crearTarjetaIncidencia(incidencia) {
     tarjeta.appendChild(acciones);
   }
   return tarjeta;
+}
+
+function formatearPrioridad(prioridad) {
+  const base = typeof prioridad === "string" && prioridad.trim() ? prioridad.trim() : "media";
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function esFechaVencida(fechaLimite) {
+  const fecha = new Date(fechaLimite);
+  if (Number.isNaN(fecha.getTime())) return false;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  fecha.setHours(0, 0, 0, 0);
+  return fecha.getTime() < hoy.getTime();
 }
 
 function crearBadge(texto, tipo) {

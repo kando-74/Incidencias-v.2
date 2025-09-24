@@ -120,6 +120,72 @@ export async function obtenerCatalogo(nombre) {
 }
 
 /**
+ * Crea un nuevo edificio en el catálogo.
+ * @param {{ nombre?: string; direccion?: string; contacto?: string; notas?: string }} datos
+ */
+export async function crearEdificio(datos) {
+  const payload = {
+    nombre: String(datos.nombre ?? "").trim(),
+    direccion: String(datos.direccion ?? "").trim(),
+    contacto: String(datos.contacto ?? "").trim(),
+    notas: String(datos.notas ?? "").trim(),
+  };
+  if (!payload.nombre) {
+    throw new Error("El nombre del edificio es obligatorio");
+  }
+  try {
+    const docRef = await addDoc(collection(db, "edificios"), {
+      ...payload,
+      fechaCreacion: serverTimestamp(),
+      fechaActualizacion: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("No se pudo crear el edificio", error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza un edificio existente.
+ * @param {string} id
+ * @param {{ nombre?: string; direccion?: string; contacto?: string; notas?: string }} datos
+ */
+export async function actualizarEdificio(id, datos) {
+  const payload = {
+    nombre: String(datos.nombre ?? "").trim(),
+    direccion: String(datos.direccion ?? "").trim(),
+    contacto: String(datos.contacto ?? "").trim(),
+    notas: String(datos.notas ?? "").trim(),
+    fechaActualizacion: serverTimestamp(),
+  };
+  if (!payload.nombre) {
+    throw new Error("El nombre del edificio es obligatorio");
+  }
+  try {
+    const refDoc = doc(db, "edificios", id);
+    await updateDoc(refDoc, payload);
+  } catch (error) {
+    console.error("No se pudo actualizar el edificio", error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un edificio del catálogo.
+ * @param {string} id
+ */
+export async function eliminarEdificio(id) {
+  try {
+    const refDoc = doc(db, "edificios", id);
+    await deleteDoc(refDoc);
+  } catch (error) {
+    console.error("No se pudo eliminar el edificio", error);
+    throw error;
+  }
+}
+
+/**
  * Actualiza el listado de archivos almacenado en la incidencia.
  * @param {string} incidenciaId
  * @param {Array<Record<string, any>>} archivos

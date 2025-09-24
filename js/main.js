@@ -7,6 +7,8 @@ import {
   obtenerArchivosIncidencia,
   actualizarEstadoIncidencia,
   actualizarArchivosIncidencia,
+  eliminarArchivoStorage,
+  eliminarIncidencia,
 } from "./services.js";
 import {
   setupModales,
@@ -243,6 +245,7 @@ function setupEventListeners() {
       edificioId: data.get("edificioId") ? String(data.get("edificioId")) : "",
       prioridad: data.get("prioridad") ? String(data.get("prioridad")) : "",
       estado: data.get("estado") ? String(data.get("estado")) : "",
+      reparadorId: data.get("reparadorId") ? String(data.get("reparadorId")) : "",
       desde: data.get("desde") ? String(data.get("desde")) : "",
       hasta: data.get("hasta") ? String(data.get("hasta")) : "",
       etiquetas: parseTags(String(data.get("etiquetas") ?? "")),
@@ -263,7 +266,13 @@ function setupEventListeners() {
     if (!state.seleccion) return;
     try {
       const archivos = await obtenerArchivosIncidencia(state.seleccion.id);
+      const actualizada = { ...state.seleccion, archivos };
+      state.seleccion = actualizada;
+      state.incidencias = state.incidencias.map((item) =>
+        item.id === actualizada.id ? { ...item, archivos } : item
+      );
       renderArchivos(archivos);
+      renderDetalle(enriquecerIncidencia(actualizada));
       if (refs.modalArchivos instanceof HTMLDialogElement) {
         openModal(refs.modalArchivos);
       }
@@ -273,11 +282,55 @@ function setupEventListeners() {
     }
   });
 
+  refs.modalArchivos?.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const accion = target.closest("[data-delete-path]");
+    if (!accion || !state.seleccion) return;
+    const path = accion.getAttribute("data-delete-path") ?? "";
+    if (!path) return;
+    try {
+      await eliminarArchivoStorage(path);
+      const restantes = (state.seleccion.archivos ?? []).filter((item) => item.path !== path);
+      await actualizarArchivosIncidencia(state.seleccion.id, restantes);
+      const id = state.seleccion.id;
+      state.seleccion = { ...state.seleccion, archivos: restantes };
+      state.incidencias = state.incidencias.map((item) =>
+        item.id === id ? { ...item, archivos: restantes } : item
+      );
+      renderArchivos(restantes);
+      renderDetalle(enriquecerIncidencia(state.seleccion));
+      showToast("Archivo eliminado", "success");
+    } catch (error) {
+      console.error(error);
+      showToast("No se pudo eliminar el archivo", "error");
+    }
+  });
+
   refs.btnEditarIncidencia?.addEventListener("click", () => {
     if (!state.seleccion) return;
     prepararFormularioIncidencia(state.seleccion);
     if (refs.modalIncidencia instanceof HTMLDialogElement) {
       openModal(refs.modalIncidencia);
+    }
+  });
+
+  const btnEliminar = document.getElementById("btn-eliminar-incidencia");
+  btnEliminar?.addEventListener("click", async () => {
+    if (!state.seleccion) return;
+    const confirmar = window.confirm("¿Eliminar la incidencia seleccionada?");
+    if (!confirmar) return;
+    try {
+      const id = state.seleccion.id;
+      await eliminarIncidencia(id);
+      showToast("Incidencia eliminada", "success");
+      state.incidencias = state.incidencias.filter((item) => item.id !== id);
+      state.seleccion = null;
+      renderDetalle(null);
+      refrescarUI();
+    } catch (error) {
+      console.error(error);
+      showToast("No se pudo eliminar la incidencia", "error");
     }
   });
 
@@ -354,6 +407,11 @@ async function cargarCatalogos() {
     poblarSelect(
       /** @type {HTMLSelectElement} */ (document.getElementById("filtro-edificio")),
       edificios,
+      "Todos"
+    );
+    poblarSelect(
+      /** @type {HTMLSelectElement} */ (document.getElementById("filtro-reparador")),
+      reparadores,
       "Todos"
     );
     refrescarUI();

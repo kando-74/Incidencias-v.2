@@ -138,6 +138,7 @@ export function renderDetalle(incidencia) {
     archivos: document.getElementById("detalle-archivos"),
     btnEditar: document.getElementById("btn-editar-incidencia"),
     btnArchivos: document.getElementById("btn-abrir-archivos"),
+    btnEliminar: document.getElementById("btn-eliminar-incidencia"),
   };
   if (!incidencia) {
     detalle.titulo.textContent = "Selecciona una incidencia";
@@ -152,11 +153,15 @@ export function renderDetalle(incidencia) {
     detalle.archivos.textContent = "—";
     detalle.btnEditar?.setAttribute("disabled", "true");
     detalle.btnArchivos?.setAttribute("disabled", "true");
+    detalle.btnEliminar?.setAttribute("disabled", "true");
     if (detalle.btnEditar?.dataset.id) {
       delete detalle.btnEditar.dataset.id;
     }
     if (detalle.btnArchivos?.dataset.id) {
       delete detalle.btnArchivos.dataset.id;
+    }
+    if (detalle.btnEliminar?.dataset.id) {
+      delete detalle.btnEliminar.dataset.id;
     }
     return;
   }
@@ -176,11 +181,15 @@ export function renderDetalle(incidencia) {
   detalle.archivos.textContent = (incidencia.archivos?.length ?? 0) > 0 ? `${incidencia.archivos.length} archivo(s)` : "—";
   detalle.btnEditar?.removeAttribute("disabled");
   detalle.btnArchivos?.removeAttribute("disabled");
+  detalle.btnEliminar?.removeAttribute("disabled");
   if (detalle.btnEditar) {
     detalle.btnEditar.dataset.id = incidencia.id;
   }
   if (detalle.btnArchivos) {
     detalle.btnArchivos.dataset.id = incidencia.id;
+  }
+  if (detalle.btnEliminar) {
+    detalle.btnEliminar.dataset.id = incidencia.id;
   }
 }
 
@@ -248,7 +257,7 @@ export function poblarSelect(select, opciones, placeholder = "Seleccione") {
 
 /**
  * Muestra el listado de archivos en el modal correspondiente.
- * @param {Array<{ nombre: string; url: string }>} archivos
+ * @param {Array<{ nombre: string; url: string; path?: string }>} archivos
  */
 export function renderArchivos(archivos) {
   const contenedor = document.getElementById("lista-archivos");
@@ -267,7 +276,12 @@ export function renderArchivos(archivos) {
     enlace.target = "_blank";
     enlace.rel = "noopener";
     enlace.textContent = archivo.nombre;
-    item.appendChild(enlace);
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "btn danger";
+    boton.dataset.deletePath = archivo.path ?? "";
+    boton.textContent = "Eliminar";
+    item.append(enlace, boton);
     lista.appendChild(item);
   });
   contenedor.appendChild(lista);

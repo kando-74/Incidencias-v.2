@@ -192,6 +192,7 @@ export function filtrarIncidencia(incidencia, filtros) {
   if (filtros.estado && incidencia.estado !== filtros.estado) return false;
   if (filtros.prioridad && incidencia.prioridad !== filtros.prioridad) return false;
   if (filtros.edificioId && incidencia.edificioId !== filtros.edificioId) return false;
+  if (filtros.reparadorId && incidencia.reparadorId !== filtros.reparadorId) return false;
   if (filtros.soloSiniestros && !toBoolean(incidencia.esSiniestro)) return false;
   if (filtros.etiquetas?.length) {
     const incidenciaEtiquetas = incidencia.etiquetas ?? [];

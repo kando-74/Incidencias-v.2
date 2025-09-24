@@ -119,6 +119,12 @@ textarea {
   border-color: var(--color-secondary);
 }
 
+.btn.danger {
+  background: #dc3545;
+  color: #ffffff;
+  border-color: #dc3545;
+}
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

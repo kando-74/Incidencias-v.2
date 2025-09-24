@@ -335,18 +335,35 @@ textarea {
 
 .lista-incidencias {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .tarjeta-incidencia {
-  display: grid;
-  gap: 0.4rem;
-  padding: 1.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-surface-alt);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tarjeta-incidencia--kanban {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1.25rem;
+}
+
+.tarjeta-incidencia--linea {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(0, 1.5fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1.2fr)
+    min-content;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
 }
 
 .tarjeta-incidencia:hover,
@@ -361,18 +378,69 @@ textarea {
   box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.2);
 }
 
-.tarjeta-incidencia .titulo {
+.tarjeta-incidencia--kanban .titulo {
   font-size: 1rem;
   font-weight: 700;
   margin: 0;
 }
 
-.tarjeta-incidencia .meta {
+.tarjeta-incidencia--kanban .meta {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+
+.tarjeta-incidencia--linea > * {
+  min-width: 0;
+}
+
+.tarjeta-incidencia--linea .linea-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tarjeta-incidencia--linea .linea-edificio,
+.tarjeta-incidencia--linea .linea-fecha {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tarjeta-incidencia--linea .linea-fecha.is-alerta {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.tarjeta-incidencia--linea .linea-fecha.linea-fecha--sin-limite {
+  font-style: italic;
+}
+
+.tarjeta-incidencia--linea .badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.6rem;
+}
+
+.tarjeta-incidencia--linea .tarjeta-acciones {
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.tarjeta-incidencia--linea .tarjeta-acciones-label {
+  display: none;
+}
+
+.tarjeta-incidencia--linea .tarjeta-acciones .btn {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
 }
 
 .badge {
@@ -747,6 +815,10 @@ textarea {
   max-height: 90vh;
 }
 
+.modal-content--wide {
+  width: min(960px, 95vw);
+}
+
 .modal-header,
 .modal-footer {
   padding: 1rem 1.5rem;
@@ -766,6 +838,76 @@ textarea {
 
 .modal-body.grid {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.modal-body--split {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2rem;
+}
+
+.modal-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.modal-panel h3 {
+  margin: 0;
+}
+
+.form-edificio textarea {
+  resize: vertical;
+}
+
+.modal-footer--inline {
+  background: none;
+  padding: 0;
+  justify-content: flex-end;
+  box-shadow: none;
+}
+
+.modal-footer--inline .btn {
+  min-width: 0;
+}
+
+.lista-edificios {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.edificio-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  padding: 0.85rem 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.edificio-item header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.edificio-item-titulo {
+  font-weight: 700;
+  margin: 0;
+}
+
+.edificio-item-meta {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  display: grid;
+  gap: 0.25rem;
+}
+
+.edificio-item-acciones {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .modal-body [data-span="full"] {

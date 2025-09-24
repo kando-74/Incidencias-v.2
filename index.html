@@ -60,6 +60,9 @@
             <button class="btn" type="button" data-modal-target="modal-filtros">
               Filtros avanzados
             </button>
+            <button class="btn" type="button" data-modal-target="modal-edificios">
+              Gestionar edificios
+            </button>
             <button class="btn" type="button" id="btn-toggle-vista" data-view="lista">
               Ver Kanban
             </button>
@@ -144,24 +147,6 @@
             <span class="resumen-label">Cerradas:</span>
             <span id="resumen-cerradas" class="resumen-value">0</span>
           </div>
-        </section>
-
-        <section
-          id="agenda-vencimientos"
-          class="agenda"
-          aria-labelledby="agenda-vencimientos-titulo"
-        >
-          <div class="agenda-header">
-            <div>
-              <h3 id="agenda-vencimientos-titulo">Agenda de vencimientos</h3>
-              <p class="hint">Fechas clave del mes en curso</p>
-            </div>
-            <div class="agenda-leyenda" aria-hidden="true">
-              <span class="agenda-marcador"></span>
-              <span>Incidencias con fecha límite</span>
-            </div>
-          </div>
-          <div id="agenda-calendario" class="agenda-calendario"></div>
         </section>
 
         <section class="listado" aria-label="Listado de incidencias" data-view="lista">
@@ -275,16 +260,6 @@
           </div>
         </dl>
           <div class="detalle-acciones">
-            <button
-              id="btn-editar-incidencia"
-              class="btn secondary"
-              type="button"
-              data-modal-target="modal-incidencia"
-              data-modal-mode="edit"
-              disabled
-            >
-              Editar incidencia
-            </button>
             <button id="btn-abrir-archivos" class="btn" type="button" disabled>
               Ver archivos
             </button>
@@ -346,6 +321,62 @@
     </main>
 
     <div id="modal-root"></div>
+
+    <!-- INICIO: MODAL-EDIFICIOS -->
+    <dialog
+      id="modal-edificios"
+      class="modal"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="modal-edificios-titulo"
+    >
+      <div class="modal-content modal-content--wide">
+        <header class="modal-header">
+          <h2 id="modal-edificios-titulo">Gestión de edificios</h2>
+          <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="modal-body modal-body--split">
+          <section class="modal-panel">
+            <h3 id="modal-edificios-form-titulo">Añadir edificio</h3>
+            <form id="form-edificio" class="form-edificio">
+              <input type="hidden" id="edificio-id" name="id" />
+              <label for="edificio-nombre">Nombre *</label>
+              <input id="edificio-nombre" name="nombre" type="text" required />
+
+              <label for="edificio-direccion">Dirección</label>
+              <input id="edificio-direccion" name="direccion" type="text" />
+
+              <label for="edificio-contacto">Persona de contacto</label>
+              <input id="edificio-contacto" name="contacto" type="text" />
+
+              <label for="edificio-notas">Notas</label>
+              <textarea id="edificio-notas" name="notas" rows="3"></textarea>
+
+              <p
+                id="edificio-error"
+                class="form-error"
+                role="alert"
+                aria-live="assertive"
+              ></p>
+
+              <div class="modal-footer modal-footer--inline">
+                <button type="submit" class="btn primary" id="btn-guardar-edificio">
+                  Guardar edificio
+                </button>
+                <button type="button" class="btn" id="btn-cancelar-edificio">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </section>
+          <section class="modal-panel">
+            <h3 id="modal-edificios-lista-titulo">Edificios registrados</h3>
+            <ul id="lista-edificios" class="lista-edificios"></ul>
+          </section>
+        </div>
+      </div>
+    </dialog>
+    <!-- FIN: MODAL-EDIFICIOS -->
 
     <!-- INICIO: MODAL-INCIDENCIA -->
     <dialog id="modal-incidencia" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-incidencia-titulo">

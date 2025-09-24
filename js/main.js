@@ -15,6 +15,9 @@ import {
   eliminarFiltroGuardado,
   obtenerComunicaciones,
   agregarComunicacion,
+  crearEdificio,
+  actualizarEdificio,
+  eliminarEdificio,
 } from "./services.js";
 import {
   setupModales,
@@ -63,6 +66,7 @@ const state = {
     comunicaciones: [],
   },
   detalleActualId: null,
+  edificioEditandoId: null,
 };
 
 let unsubscribeIncidencias = null;
@@ -97,6 +101,7 @@ function cacheDom() {
   refs.modalIncidencia = document.getElementById("modal-incidencia");
   refs.modalFiltros = document.getElementById("modal-filtros");
   refs.modalArchivos = document.getElementById("modal-archivos");
+  refs.modalEdificios = document.getElementById("modal-edificios");
   refs.errorIncidencia = document.getElementById("incidencia-error");
   refs.btnToggleVista = document.getElementById("btn-toggle-vista");
   refs.btnExportar = document.getElementById("btn-exportar");
@@ -112,6 +117,12 @@ function cacheDom() {
   refs.comunicacionError = document.getElementById("comunicacion-error");
   refs.checklistContainer = document.getElementById("checklist-contenido");
   refs.comunicacionesLista = document.getElementById("comunicaciones-lista");
+  refs.formEdificio = document.getElementById("form-edificio");
+  refs.listaEdificios = document.getElementById("lista-edificios");
+  refs.errorEdificio = document.getElementById("edificio-error");
+  refs.btnCancelarEdificio = document.getElementById("btn-cancelar-edificio");
+  refs.formEdificioTitulo = document.getElementById("modal-edificios-form-titulo");
+  refs.btnGuardarEdificio = document.getElementById("btn-guardar-edificio");
   refs.columnasKanban = {
     abierta: document.getElementById("kanban-abierta"),
     en_proceso: document.getElementById("kanban-en-proceso"),
@@ -123,17 +134,24 @@ function setupEventListeners() {
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const trigger = target.closest('[data-modal-target="modal-incidencia"]');
-    if (!trigger) return;
-    const mode = trigger.getAttribute("data-modal-mode") ?? "create";
-    actualizarTituloModalIncidencia(mode);
-    if (mode === "create") {
-      refs.formIncidencia?.reset();
-      refs.errorIncidencia.textContent = "";
-      const idField = refs.formIncidencia?.querySelector("#incidencia-id");
-      if (idField instanceof HTMLInputElement) {
-        idField.value = "";
+
+    const triggerIncidencia = target.closest('[data-modal-target="modal-incidencia"]');
+    if (triggerIncidencia) {
+      const mode = triggerIncidencia.getAttribute("data-modal-mode") ?? "create";
+      actualizarTituloModalIncidencia(mode);
+      if (mode === "create") {
+        refs.formIncidencia?.reset();
+        refs.errorIncidencia.textContent = "";
+        const idField = refs.formIncidencia?.querySelector("#incidencia-id");
+        if (idField instanceof HTMLInputElement) {
+          idField.value = "";
+        }
       }
+    }
+
+    const triggerEdificios = target.closest('[data-modal-target="modal-edificios"]');
+    if (triggerEdificios) {
+      prepararModalEdificios();
     }
   });
 
@@ -176,7 +194,7 @@ function setupEventListeners() {
         const tarjeta = target.closest(".tarjeta-incidencia");
         if (tarjeta) {
           event.preventDefault();
-          seleccionarIncidencia(tarjeta.dataset.id);
+          abrirModalEdicionIncidencia(tarjeta.dataset.id);
         }
       }
     }
@@ -194,11 +212,15 @@ function setupEventListeners() {
         const tarjeta = target.closest(".tarjeta-incidencia");
         if (tarjeta) {
           event.preventDefault();
-          seleccionarIncidencia(tarjeta.dataset.id);
+          abrirModalEdicionIncidencia(tarjeta.dataset.id);
         }
       }
     }
   });
+
+  refs.formEdificio?.addEventListener("submit", handleSubmitEdificio);
+  refs.btnCancelarEdificio?.addEventListener("click", () => prepararFormularioEdificio(null));
+  refs.listaEdificios?.addEventListener("click", handleAccionEdificio);
 
   refs.busquedaInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -565,11 +587,7 @@ async function cargarCatalogos() {
       obtenerCatalogo("polizas_seguros"),
     ]);
     state.catalogos = { edificios, reparadores, polizas };
-    poblarSelect(
-      /** @type {HTMLSelectElement} */ (document.getElementById("incidencia-edificio")),
-      edificios,
-      "Selecciona un edificio"
-    );
+    actualizarSelectsEdificio(edificios);
     poblarSelect(
       /** @type {HTMLSelectElement} */ (document.getElementById("incidencia-reparador")),
       reparadores,
@@ -581,15 +599,11 @@ async function cargarCatalogos() {
       "Selecciona una póliza"
     );
     poblarSelect(
-      /** @type {HTMLSelectElement} */ (document.getElementById("filtro-edificio")),
-      edificios,
-      "Todos"
-    );
-    poblarSelect(
       /** @type {HTMLSelectElement} */ (document.getElementById("filtro-reparador")),
       reparadores,
       "Todos"
     );
+    renderListadoEdificios();
     refrescarUI();
   } catch (error) {
     console.error("No se pudieron cargar los catálogos", error);
@@ -662,7 +676,7 @@ function handleSelectIncidencia(event) {
   const tarjeta = target.closest(".tarjeta-incidencia");
   if (!tarjeta) return;
   event.preventDefault();
-  seleccionarIncidencia(tarjeta.dataset.id);
+  abrirModalEdicionIncidencia(tarjeta.dataset.id);
 }
 
 async function handleMoveIncidencia(event) {
@@ -691,6 +705,18 @@ async function handleMoveIncidencia(event) {
   } finally {
     accion.removeAttribute("aria-busy");
     accion.removeAttribute("disabled");
+  }
+}
+
+function abrirModalEdicionIncidencia(id) {
+  if (!id) return;
+  seleccionarIncidencia(id);
+  if (!state.seleccion) return;
+  prepararFormularioIncidencia(state.seleccion);
+  actualizarTituloModalIncidencia("edit");
+  if (refs.modalIncidencia instanceof HTMLDialogElement) {
+    refs.modalIncidencia.dataset.mode = "edit";
+    openModal(refs.modalIncidencia);
   }
 }
 
@@ -836,6 +862,290 @@ function setupDragAndDrop() {
       showToast("No se pudo actualizar el estado", "error");
     }
   });
+}
+
+function prepararModalEdificios() {
+  prepararFormularioEdificio(null);
+  renderListadoEdificios();
+  window.requestAnimationFrame(() => {
+    const nombre = refs.formEdificio?.querySelector("#edificio-nombre");
+    if (nombre instanceof HTMLInputElement) {
+      nombre.focus();
+    }
+  });
+}
+
+function prepararFormularioEdificio(edificio) {
+  if (!refs.formEdificio) return;
+  const esEdicion = Boolean(edificio && edificio.id);
+  state.edificioEditandoId = esEdicion ? String(edificio.id) : null;
+  if (refs.formEdificioTitulo) {
+    refs.formEdificioTitulo.textContent = esEdicion ? "Editar edificio" : "Añadir edificio";
+  }
+  if (refs.btnGuardarEdificio instanceof HTMLButtonElement) {
+    refs.btnGuardarEdificio.textContent = esEdicion ? "Actualizar edificio" : "Guardar edificio";
+  }
+  refs.formEdificio.dataset.mode = esEdicion ? "edit" : "create";
+  if (refs.errorEdificio) {
+    refs.errorEdificio.textContent = "";
+  }
+  refs.formEdificio.reset();
+  const idField = refs.formEdificio.querySelector("#edificio-id");
+  if (idField instanceof HTMLInputElement) {
+    idField.value = esEdicion ? String(edificio.id) : "";
+  }
+  const asignar = (selector, valor) => {
+    const field = refs.formEdificio?.querySelector(selector);
+    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+      field.value = valor ?? "";
+    }
+  };
+  if (esEdicion && edificio) {
+    const nombre =
+      (typeof edificio.nombre === "string" && edificio.nombre.trim())
+        ? edificio.nombre.trim()
+        : typeof edificio.razonSocial === "string" && edificio.razonSocial.trim()
+        ? edificio.razonSocial.trim()
+        : "";
+    asignar("#edificio-nombre", nombre);
+    asignar("#edificio-direccion", edificio.direccion ?? edificio.direccionCompleta ?? "");
+    asignar(
+      "#edificio-contacto",
+      edificio.contacto ?? edificio.personaContacto ?? edificio.telefono ?? ""
+    );
+    asignar("#edificio-notas", edificio.notas ?? edificio.observaciones ?? "");
+  }
+  window.requestAnimationFrame(() => {
+    const nombre = refs.formEdificio?.querySelector("#edificio-nombre");
+    if (nombre instanceof HTMLInputElement) {
+      nombre.focus();
+      if (esEdicion) {
+        nombre.select();
+      }
+    }
+  });
+}
+
+async function handleSubmitEdificio(event) {
+  event.preventDefault();
+  if (!refs.formEdificio) return;
+  const datos = new FormData(refs.formEdificio);
+  const payload = {
+    nombre: String(datos.get("nombre") ?? "").trim(),
+    direccion: String(datos.get("direccion") ?? "").trim(),
+    contacto: String(datos.get("contacto") ?? "").trim(),
+    notas: String(datos.get("notas") ?? "").trim(),
+  };
+  if (!payload.nombre) {
+    if (refs.errorEdificio) {
+      refs.errorEdificio.textContent = "El nombre es obligatorio";
+    }
+    return;
+  }
+  if (refs.errorEdificio) {
+    refs.errorEdificio.textContent = "";
+  }
+  const botonGuardar = refs.btnGuardarEdificio;
+  const textoOriginal = botonGuardar?.textContent ?? "";
+  if (botonGuardar instanceof HTMLButtonElement) {
+    botonGuardar.disabled = true;
+    botonGuardar.setAttribute("aria-busy", "true");
+    botonGuardar.textContent = state.edificioEditandoId ? "Actualizando..." : "Guardando...";
+  }
+  let exito = false;
+  try {
+    if (state.edificioEditandoId) {
+      await actualizarEdificio(state.edificioEditandoId, payload);
+      showToast("Edificio actualizado", "success");
+    } else {
+      await crearEdificio(payload);
+      showToast("Edificio creado", "success");
+    }
+    exito = true;
+    await recargarEdificios();
+    prepararFormularioEdificio(null);
+  } catch (error) {
+    console.error(error);
+    if (refs.errorEdificio) {
+      refs.errorEdificio.textContent = traducirError(error);
+    }
+  } finally {
+    if (botonGuardar instanceof HTMLButtonElement) {
+      botonGuardar.disabled = false;
+      botonGuardar.removeAttribute("aria-busy");
+      if (!exito) {
+        botonGuardar.textContent = textoOriginal || (state.edificioEditandoId ? "Actualizar edificio" : "Guardar edificio");
+      }
+    }
+  }
+}
+
+async function recargarEdificios() {
+  try {
+    const edificios = await obtenerCatalogo("edificios");
+    state.catalogos = { ...state.catalogos, edificios };
+    actualizarSelectsEdificio(edificios);
+    renderListadoEdificios();
+    refrescarUI();
+  } catch (error) {
+    console.error("No se pudieron cargar los edificios", error);
+    showToast("No se pudieron cargar los edificios", "error");
+  }
+}
+
+function actualizarSelectsEdificio(edificios) {
+  const selectIncidencia = /** @type {HTMLSelectElement | null} */ (
+    document.getElementById("incidencia-edificio")
+  );
+  if (selectIncidencia) {
+    const valorActual = selectIncidencia.value;
+    poblarSelect(selectIncidencia, edificios, "Selecciona un edificio");
+    selectIncidencia.value = valorActual;
+  }
+  const selectFiltro = /** @type {HTMLSelectElement | null} */ (
+    document.getElementById("filtro-edificio")
+  );
+  if (selectFiltro) {
+    const valorFiltro = selectFiltro.value;
+    poblarSelect(selectFiltro, edificios, "Todos");
+    selectFiltro.value = valorFiltro;
+  }
+}
+
+function renderListadoEdificios() {
+  if (!refs.listaEdificios) return;
+  const edificios = Array.isArray(state.catalogos.edificios)
+    ? [...state.catalogos.edificios]
+    : [];
+  refs.listaEdificios.innerHTML = "";
+  if (!edificios.length) {
+    const vacio = document.createElement("li");
+    vacio.className = "hint";
+    vacio.textContent = "No hay edificios registrados.";
+    refs.listaEdificios.appendChild(vacio);
+    return;
+  }
+  edificios.sort((a, b) =>
+    obtenerNombreEdificio(a).localeCompare(obtenerNombreEdificio(b), "es", { sensitivity: "base" })
+  );
+  const fragment = document.createDocumentFragment();
+  edificios.forEach((edificio) => {
+    const item = document.createElement("li");
+    item.className = "edificio-item";
+    item.dataset.id = edificio.id ?? "";
+
+    const header = document.createElement("header");
+    const titulo = document.createElement("h4");
+    titulo.className = "edificio-item-titulo";
+    const nombre = obtenerNombreEdificio(edificio) || "(Sin nombre)";
+    titulo.textContent = nombre;
+
+    const acciones = document.createElement("div");
+    acciones.className = "edificio-item-acciones";
+    const btnEditar = document.createElement("button");
+    btnEditar.type = "button";
+    btnEditar.className = "btn secondary";
+    btnEditar.dataset.action = "edit";
+    btnEditar.dataset.id = edificio.id ?? "";
+    btnEditar.textContent = "Editar";
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button";
+    btnEliminar.className = "btn danger";
+    btnEliminar.dataset.action = "delete";
+    btnEliminar.dataset.id = edificio.id ?? "";
+    btnEliminar.textContent = "Eliminar";
+    acciones.append(btnEditar, btnEliminar);
+    header.append(titulo, acciones);
+    item.appendChild(header);
+
+    const meta = document.createElement("div");
+    meta.className = "edificio-item-meta";
+    const direccion = edificio.direccion ?? edificio.direccionCompleta ?? "";
+    if (direccion) {
+      const p = document.createElement("p");
+      p.textContent = direccion;
+      meta.appendChild(p);
+    }
+    const contacto = edificio.contacto ?? edificio.personaContacto ?? edificio.telefono ?? "";
+    if (contacto) {
+      const p = document.createElement("p");
+      p.textContent = `Contacto: ${contacto}`;
+      meta.appendChild(p);
+    }
+    const notas = edificio.notas ?? edificio.observaciones ?? "";
+    if (notas) {
+      const p = document.createElement("p");
+      p.textContent = notas;
+      meta.appendChild(p);
+    }
+    if (meta.childElementCount > 0) {
+      item.appendChild(meta);
+    }
+    fragment.appendChild(item);
+  });
+  refs.listaEdificios.appendChild(fragment);
+}
+
+async function handleAccionEdificio(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const accion = target.closest("[data-action]");
+  if (!(accion instanceof HTMLElement)) return;
+  const id = accion.dataset.id ?? "";
+  if (!id) return;
+  event.preventDefault();
+
+  const tipo = accion.dataset.action;
+  if (tipo === "edit") {
+    const edificio = state.catalogos.edificios.find((item) => item.id === id);
+    if (edificio) {
+      prepararFormularioEdificio(edificio);
+    }
+    return;
+  }
+
+  if (tipo === "delete") {
+    const confirmar = window.confirm("¿Eliminar este edificio?");
+    if (!confirmar) return;
+    const boton = accion instanceof HTMLButtonElement ? accion : null;
+    const textoOriginal = boton?.textContent ?? "";
+    if (boton) {
+      boton.disabled = true;
+      boton.setAttribute("aria-busy", "true");
+      boton.textContent = "Eliminando...";
+    }
+    try {
+      await eliminarEdificio(id);
+      showToast("Edificio eliminado", "success");
+      if (state.edificioEditandoId === id) {
+        prepararFormularioEdificio(null);
+      }
+      await recargarEdificios();
+    } catch (error) {
+      console.error(error);
+      showToast("No se pudo eliminar el edificio", "error");
+    } finally {
+      if (boton) {
+        boton.disabled = false;
+        boton.removeAttribute("aria-busy");
+        boton.textContent = textoOriginal || "Eliminar";
+      }
+    }
+  }
+}
+
+function obtenerNombreEdificio(edificio) {
+  if (!edificio) return "";
+  const posibles = [edificio.nombre, edificio.razonSocial, edificio.label];
+  for (const valor of posibles) {
+    if (typeof valor === "string" && valor.trim()) {
+      return valor.trim();
+    }
+  }
+  if (typeof edificio.id === "string" && edificio.id.trim()) {
+    return edificio.id.trim();
+  }
+  return "";
 }
 
 function traducirError(error) {

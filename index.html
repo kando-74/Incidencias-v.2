@@ -168,6 +168,17 @@
               Pulsa Enter para aplicar búsqueda rápida.
             </span>
           </div>
+          <div id="print-resumen" class="print-resumen" aria-hidden="true"></div>
+          <div class="print-lista-cabecera" aria-hidden="true">
+            <span>Edificio</span>
+            <span>Título</span>
+            <span>Descripción</span>
+            <span>Fecha alta</span>
+            <span>Prioridad</span>
+            <span>Estado</span>
+            <span>Vencimiento</span>
+            <span>Asignado / Seguro</span>
+          </div>
           <div
             id="filtros-rapidos"
             class="filtros-rapidos"
@@ -269,19 +280,16 @@
             <button id="btn-abrir-archivos" class="btn" type="button" disabled>
               Ver archivos
             </button>
+            <button id="btn-imprimir-detalle" class="btn" type="button" disabled>
+              Imprimir ficha
+            </button>
             <!-- INICIO: BOTON-ELIMINAR-INCIDENCIA -->
             <button id="btn-eliminar-incidencia" class="btn danger" type="button" disabled>
               Eliminar incidencia
             </button>
             <!-- FIN: BOTON-ELIMINAR-INCIDENCIA -->
           </div>
-          <section
-            class="detalle-checklist"
-            aria-labelledby="detalle-checklist-titulo"
-          >
-            <h4 id="detalle-checklist-titulo">Checklist de resolución</h4>
-            <div id="checklist-contenido" class="checklist"></div>
-          </section>
+          <section id="print-detalle" class="print-detalle" aria-hidden="true"></section>
         </aside>
       </section>
     </main>

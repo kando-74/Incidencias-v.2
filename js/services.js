@@ -423,24 +423,6 @@ export async function eliminarIncidencia(id) {
 }
 
 /**
- * Actualiza el estado del checklist de una incidencia.
- * @param {string} id
- * @param {Record<string, boolean>} checklistEstado
- */
-export async function actualizarChecklistIncidencia(id, checklistEstado) {
-  try {
-    const refDoc = doc(db, "incidencias", id);
-    await updateDoc(refDoc, {
-      checklistEstado,
-      fechaActualizacion: serverTimestamp(),
-    });
-  } catch (error) {
-    console.error("No se pudo actualizar el checklist", error);
-    throw error;
-  }
-}
-
-/**
  * Obtiene los filtros rápidos guardados del usuario.
  * @param {string} uid
  */
